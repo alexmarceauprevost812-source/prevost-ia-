@@ -25,16 +25,16 @@ class AppTests(unittest.TestCase):
         ui = UI()
         ui.color = True
         with contextlib.redirect_stdout(io.StringIO()) as output:
-            ui.show('PRÉVOST')
+            ui.show('Réponse')
             ui.tool('python.run')
             ui.raw('brut\x1b[31m\x9b0m')
             self.assertEqual(ui.answer(iter(['Bon', 'jour'])), 'Bonjour')
         self.assertEqual(output.getvalue(),
-            '\x1b[40m\x1b[38;2;255;32;32mPRÉVOST\x1b[0m\n'
-            '\x1b[40m\x1b[38;2;255;215;0mpython.run\x1b[0m\n'
+            '\x1b[40m\x1b[38;2;135;206;235mRéponse\x1b[0m\n'
+            '\x1b[40m\x1b[38;2;255;255;0mpython.run\x1b[0m\n'
             '\x1b[40;97mbrut�[31m�0m\x1b[0m\n'
             '\x1b[40m\x1b[38;2;255;32;32mPRÉVOST > \x1b[0m'
-            '\x1b[40m\x1b[38;2;255;32;32mBon\x1b[0m\x1b[40m\x1b[38;2;255;32;32mjour\x1b[0m\n')
+            '\x1b[40m\x1b[38;2;135;206;235mBon\x1b[0m\x1b[40m\x1b[38;2;135;206;235mjour\x1b[0m\x1b[0m\n')
 
     def test_input_resets_on_return_and_interrupt(self):
         ui = UI()
@@ -42,7 +42,7 @@ class AppTests(unittest.TestCase):
         for effect in ('oui', EOFError(), KeyboardInterrupt()):
             with self.subTest(effect=effect), contextlib.redirect_stdout(io.StringIO()) as output:
                 def read(prompt):
-                    self.assertEqual(prompt, '\x1b[40;38;2;135;206;250mVous > ')
+                    self.assertEqual(prompt, '\x1b[40;97mVous > ')
                     if isinstance(effect, BaseException):
                         raise effect
                     return effect
@@ -70,12 +70,14 @@ class AppTests(unittest.TestCase):
     def test_stream_failure_leaves_reset_color(self):
         ui = UI()
         ui.color = True
-        def chunks():
-            yield 'partiel'
-            raise ValueError('flux interrompu')
-        with contextlib.redirect_stdout(io.StringIO()) as output, self.assertRaises(ValueError):
-            ui.answer(chunks())
-        self.assertTrue(output.getvalue().endswith('partiel\x1b[0m\n'))
+        for error in (ValueError('flux interrompu'), KeyboardInterrupt()):
+            def chunks():
+                yield 'partiel'
+                raise error
+            with self.subTest(error=error), contextlib.redirect_stdout(io.StringIO()) as output:
+                with self.assertRaises(type(error)):
+                    ui.answer(chunks())
+                self.assertTrue(output.getvalue().endswith('partiel\x1b[0m\x1b[0m\n'))
 
     def test_complete_mission_simulated_model_real_execution(self):
         # Seule la génération Ollama est simulée ; écriture et sous-processus sont réels.
@@ -87,9 +89,13 @@ class AppTests(unittest.TestCase):
                 yield text[:30]
                 yield text[30:]
         ui = UI()
+        ui.color = True
         ui.confirm = lambda prompt: True
         with contextlib.redirect_stdout(io.StringIO()) as captured:
             code_mission(Model(), 'simulé', self.project, 'Créer un programme de salutation', ui, 5)
+        self.assertIn('\x1b[38;2;135;206;235m', captured.getvalue())
+        self.assertIn('\x1b[38;2;255;255;0mExécution', captured.getvalue())
+        self.assertIn('\x1b[40;97m{', captured.getvalue())
         self.assertIn('Bonjour PRÉVOST', self.project.read('bonjour.py'))
         records = [json.loads(line) for line in self.project.record.read_text().splitlines()]
         result = next(row for row in records if row.get('event') == 'command')

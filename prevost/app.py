@@ -33,8 +33,8 @@ def safe(value):
 
 class UI:
     RED = '38;2;255;32;32'
-    GOLD = '38;2;255;215;0'
-    SKY = '40;38;2;135;206;250'
+    YELLOW = '38;2;255;255;0'
+    SKY = '38;2;135;206;235'
     WHITE = '40;97'
 
     def __init__(self):
@@ -44,23 +44,23 @@ class UI:
         if not self.color:
             return safe(text)
         # Séparer le fond pour émettre les séquences RGB exactes de la palette.
-        background = '\033[40m' if code in (self.RED, self.GOLD) else ''
+        background = '\033[40m' if code in (self.RED, self.YELLOW, self.SKY) else ''
         return f'{background}\033[{code}m{safe(text)}\033[0m'
 
     def show(self, text):
-        print(self.paint(self.RED, text))
+        print(self.paint(self.SKY, text))
 
     def tool(self, text):
-        print(self.paint(self.GOLD, text))
+        print(self.paint(self.YELLOW, text))
 
     def raw(self, text):
         print(self.paint(self.WHITE, text))
 
     def read(self, prompt=''):
-        # Garder le bleu pendant l’écho du terminal, puis restaurer ses attributs.
+        # Garder le blanc pendant l’écho du terminal, puis restaurer ses attributs.
         prompt = safe(prompt)
         try:
-            return input(f'\033[{self.SKY}m{prompt}' if self.color else prompt)
+            return input(f'\033[{self.WHITE}m{prompt}' if self.color else prompt)
         finally:
             if self.color:
                 print('\033[0m', end='', flush=True)
@@ -75,8 +75,10 @@ class UI:
         try:
             for chunk in chunks:
                 parts.append(chunk)
-                print(self.paint(self.RED, chunk), end='', flush=True)
+                print(self.paint(self.SKY, chunk), end='', flush=True)
         finally:
+            if self.color:
+                print('\033[0m', end='', flush=True)
             print()
         return ''.join(parts)
 
