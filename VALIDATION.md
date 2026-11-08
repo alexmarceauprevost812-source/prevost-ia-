@@ -110,3 +110,11 @@ Les tests du coffre exécutent réellement AES-GCM, Scrypt et les opérations de
 Le test de conversation vérifie que `/coffre` appelle directement l’interface locale, sans appel au modèle ni création d’historique ; des secrets fictifs passés à tort après la commande ne sont pas reproduits dans les messages d’erreur.
 
 Aucun cookie réel, profil de navigateur ou compte connecté n’est lu. Les saisies CLI sont **simulées**, distinctes du chiffrement et du stockage réellement testés. Aucun coffre personnel n’est initialisé et aucune phrase de passe n’est demandée dans la conversation. Aucun test de connexion ni branchement à Themus n’est effectué : son lien/dossier et la provenance des cookies restent à préciser. La fonction permet seulement le stockage local explicite, sans usage automatique ni transmission d’un cookie à un outil.
+
+## Reconnaissance de « scan complet » — 8 novembre 2026
+
+**91 tests réussis** : sept tests supplémentaires vérifient la reconnaissance exacte de `scan complet` et de la faute `scam complet`, le routage vers le profil fixe `nmap -v -A`, la demande de cible, la confirmation distincte, le fonctionnement sans Ollama, le rejet des plages/options/URL, le refus et l’annulation sans sous-processus, les couleurs, le signalement d’un échec DNS malgré un code retour 0 et l’absence de déclenchement depuis une réponse du modèle.
+
+Un test lance réellement la CLI PRÉVOST et son sous-processus, en remplaçant Nmap par un **exécutable factice** dans un dossier temporaire. Celui-ci affiche ses arguments et n’effectue aucun accès réseau. Les autres résultats Nmap sont simulés. Aucun scan réel supplémentaire n’a été lancé pendant ces tests.
+
+L’essai réel précédent de la commande exacte `nmap -v -A scanme.nmap.org` a produit `Failed to resolve "scanme.nmap.org"` et `0 IP addresses`, malgré un code retour 0. Il n’a donc analysé aucun hôte. Les résultats d’un audit réel, les droits de détection du système et les scripts sur le serveur de démonstration restent non validés dans cet environnement.

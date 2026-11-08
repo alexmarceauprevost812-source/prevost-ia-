@@ -2,9 +2,11 @@
 import argparse
 import difflib
 import hashlib
+import ipaddress
 import json
 import os
 from pathlib import Path
+import re
 import shlex
 import signal
 import subprocess
@@ -308,6 +310,55 @@ def code_mission(client, model, project, request, ui, timeout):
     project.save({'role': 'assistant', 'content': answer})
 
 
+def scan_request(text):
+    """Reconnaissance étroite d’une demande utilisateur, jamais d’une sortie modèle."""
+    match = re.fullmatch(r'(?:scan|scam)\s+complet(?:\s+(.+))?', text, re.IGNORECASE)
+    if match is None:
+        return None
+    return match.group(1) or ''
+
+
+def scan_target(value):
+    value = value.strip()
+    if not value or len(value) > 253:
+        raise ValueError('Cible requise : une IPv4 ou un nom DNS exact.')
+    try:
+        address = ipaddress.ip_address(value)
+    except ValueError:
+        try:
+            host = value.encode('idna').decode('ascii').lower()
+        except UnicodeError:
+            raise ValueError('Nom de cible invalide.') from None
+        if any(not re.fullmatch(r'[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?', label)
+               for label in host.split('.')) or re.fullmatch(r'[0-9.-]+', host):
+            raise ValueError('Une seule cible exacte requise, sans option, URL, plage ni CIDR.')
+        return host
+    if address.version != 4 or address.is_multicast or address.is_unspecified:
+        raise ValueError('Ce profil accepte une cible IPv4 unicast ou un nom DNS.')
+    return str(address)
+
+
+def scan_mission(project, target, ui, timeout):
+    ui.show('Scan Nmap détaillé : versions des services, scripts par défaut, '
+            'détection du système et traceroute selon les droits disponibles. '
+            'Profil : nmap -v -A ; les 1 000 ports TCP habituels, pas tous les ports ni UDP. '
+            'Une autorisation d’inventaire réseau ne suffit pas pour cet audit actif.')
+    target = target or ui.read('Cible exacte autorisée (IPv4 ou nom DNS ; vide = annuler) > ')
+    if not target.strip():
+        ui.show('Scan annulé : aucune cible choisie.')
+        return
+    target = scan_target(target)
+    def confirmation(proposal):
+        return ui.confirm(f'Autorisation distincte : je confirme avoir le droit d’effectuer ce scan actif '
+                          f'sur la seule cible {target}.\n' + proposal)
+    result = project.run(['nmap', '-v', '-A', target], timeout, confirmation)
+    ui.tool('Exécution Nmap : ' + ('annulée' if result.get('cancelled') else 'terminée'))
+    ui.raw(json.dumps(result, ensure_ascii=False, indent=2))
+    if 'Failed to resolve' in result.get('output', '') or '0 IP addresses' in result.get('output', ''):
+        ui.show('Aucune cible analysée : vérifier la résolution DNS et l’accès réseau. '
+                'Un code retour 0 ne suffit pas à valider le scan.')
+
+
 HELP = '''/aide ; /quitter ; /modeles ; /historique
 /outils — registre vérifié LexOS/Kali/REA ; /agent demande — mission par outils validés
 /reseaux — inventaire privé et autorisations ; /veille-reseau — veille consentie au premier plan
@@ -317,7 +368,8 @@ HELP = '''/aide ; /quitter ; /modeles ; /historique
 /ecrire chemin — saisir un contenu, finir par une ligne .fin ; aperçu et confirmation
 /coder demande — proposer fichiers et commandes avec Ollama, puis confirmer chaque action
 /commande arguments — proposer une commande sans shell, puis confirmer
-Toute autre saisie : conversation française en streaming.'''
+/scan [cible] ; « scan complet » ou « scam complet » — profil Nmap -v -A, cible et autorisation requises
+Toute autre saisie : conversation française en streaming ; elle ne lance pas d’outil automatiquement.'''
 
 
 def main(argv=None):
@@ -353,6 +405,7 @@ def main(argv=None):
             try:
                 text = ui.read('Vous > ').strip()
                 verb, _, rest = text.partition(' ')
+                requested_scan = scan_request(text)
                 if verb == '/quitter':
                     break
                 if verb == '/aide':
@@ -398,6 +451,8 @@ def main(argv=None):
                     result = project.run(shlex.split(rest), args.timeout, ui.confirm)
                     ui.tool('Exécution : ' + ('annulée' if result.get('cancelled') else 'terminée'))
                     ui.raw(json.dumps(result, ensure_ascii=False, indent=2))
+                elif verb == '/scan' or requested_scan is not None:
+                    scan_mission(project, rest if verb == '/scan' else requested_scan, ui, args.timeout)
                 elif verb == '/coder':
                     if not model:
                         raise ValueError('Choisir un modèle avec /modeles.')
