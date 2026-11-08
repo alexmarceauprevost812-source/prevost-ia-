@@ -272,6 +272,7 @@ def code_mission(client, model, project, request, ui, timeout):
 
 
 HELP = '''/aide ; /quitter ; /modeles ; /historique
+/outils — registre vérifié LexOS/Kali/REA ; /agent demande — mission par outils validés
 /lire chemin — lire un fichier et l’ajouter au contexte du prochain échange
 /ecrire chemin — saisir un contenu, finir par une ligne .fin ; aperçu et confirmation
 /coder demande — proposer fichiers et commandes avec Ollama, puis confirmer chaque action
@@ -318,6 +319,17 @@ def main(argv=None):
                     ui.show(HELP)
                 elif verb == '/modeles':
                     model = choose(client, ui)
+                elif verb == '/outils':
+                    from .tools import Registry
+                    ui.show(json.dumps(Registry(project, ui.confirm).catalogue(), ensure_ascii=False, indent=2))
+                elif verb == '/agent':
+                    from .agent import Agent, ModelPlanner
+                    from .tools import Registry
+                    if not model:
+                        raise ValueError('Choisir un modèle avec /modeles.')
+                    registry = Registry(project, ui.confirm)
+                    mission = Agent(registry, ui).run(rest, ModelPlanner(client, model, registry))
+                    ui.show('Rapport local : ' + mission['report'])
                 elif verb == '/historique':
                     ui.show(json.dumps(project.conversation(), ensure_ascii=False, indent=2))
                 elif verb == '/lire':
