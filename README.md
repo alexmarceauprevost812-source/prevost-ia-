@@ -1,6 +1,6 @@
 # PRÉVOST IA Local — v1
 
-Assistant Python de programmation locale avec Ollama, sans dépendance Python externe. Python 3.10+ et Linux sont requis pour l’arrêt des groupes de processus.
+Assistant Python de programmation locale avec Ollama. Le cœur fonctionne sans dépendance Python externe ; le coffre optionnel utilise `cryptography`. Python 3.10+ et Linux sont requis pour l’arrêt des groupes de processus.
 
 ## Lancement
 
@@ -33,6 +33,8 @@ Pour modifier un fichier avec Ollama, le lire d’abord avec `/lire`, puis utili
 Sans Ollama, les commandes manuelles restent disponibles. Dans la conversation, `/coder` et `/agent`, l’interface emploie un fond noir, le nom et l’étiquette PRÉVOST rouges, les réponses bleu ciel RGB `#87CEEB` (aussi pendant le streaming), les noms d’outils et commandes jaunes RGB `#FFFF00`, l’invite « Vous > », la saisie et les résultats bruts blancs. Les couleurs sont réinitialisées après chaque affichage et lors des interruptions. Les séquences de contrôle provenant du modèle et des fichiers sont neutralisées. Les couleurs sont désactivées hors terminal ou avec `NO_COLOR=1`.
 
 ## Historique et sauvegardes
+
+Le [coffre local](COFFRE.md), accessible par `/coffre`, conserve uniquement les cookies de vos propres comptes que vous fournissez explicitement, chiffrés par phrase de passe sur votre appareil. Les valeurs ne sont ni affichées, ni ajoutées au modèle ou à l’historique. Le stockage n’autorise pas l’utilisation par un outil ; aucun branchement à Themus n’est encore effectué.
 
 Les échanges, résultats de commandes et sauvegardes des fichiers modifiés restent dans `~/.local/share/prevost-ia-local/<empreinte-du-chemin-du-projet>/`, hors du dépôt. À la réouverture du même dossier, les vingt derniers messages sont repris, avec une lecture bornée à 200 Ko d’historique. Le fichier de journal est privé (mode 600), son dossier en mode 700. Les sauvegardes permettent une restauration manuelle ; aucune suppression automatique n’est effectuée. Déplacer le projet change son identifiant de mémoire.
 

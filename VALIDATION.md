@@ -100,3 +100,13 @@ Pour compléter depuis un terminal hôte ayant accès au réseau, dans le dépô
 6. Exécuter `python3 -m prevost.network retirer --network IDENTIFIANT` ; vérifier que la découverte cesse sur ce réseau et que l’historique est conservé. Terminer avec `python3 -m prevost.network arreter`.
 
 Aucun test réel n’est annoncé réussi avant observation de ces résultats. Aucun audit actif, fichier distant, cookie ou mot de passe n’est collecté par ce module. Aucun service, lanceur ou privilège système n’est modifié.
+
+## Coffre privé local — 8 novembre 2026
+
+**84 tests réussis**, dont 13 tests spécifiques au coffre et un test supplémentaire de séparation entre le coffre, le modèle et l’historique. La dépendance `cryptography` 43.0.0 était déjà présente dans l’environnement ; aucune installation n’a été effectuée.
+
+Les tests du coffre exécutent réellement AES-GCM, Scrypt et les opérations de fichiers avec des **cookies et phrases de passe fictifs** dans des dossiers temporaires. Ils vérifient : déchiffrement correct, absence des secrets et métadonnées en clair sur disque, mauvais mot de passe, altération du fichier, sels/nonces distincts, liste sans valeur, état sans autorisation d’utilisation, suppression et réouverture, refus d’écrasement, validation des entrées, liens symboliques et physiques refusés, dossiers hors Git, permissions 700/600, conservation du fichier après échec d’écriture atomique, format invalide rejeté avant dérivation, confirmation du propriétaire, refus sans demande du secret, interdiction du repli vers une saisie avec écho, interruption et dépendance absente.
+
+Le test de conversation vérifie que `/coffre` appelle directement l’interface locale, sans appel au modèle ni création d’historique ; des secrets fictifs passés à tort après la commande ne sont pas reproduits dans les messages d’erreur.
+
+Aucun cookie réel, profil de navigateur ou compte connecté n’est lu. Les saisies CLI sont **simulées**, distinctes du chiffrement et du stockage réellement testés. Aucun coffre personnel n’est initialisé et aucune phrase de passe n’est demandée dans la conversation. Aucun test de connexion ni branchement à Themus n’est effectué : son lien/dossier et la provenance des cookies restent à préciser. La fonction permet seulement le stockage local explicite, sans usage automatique ni transmission d’un cookie à un outil.

@@ -1,0 +1,2 @@
+# Dépendance optionnelle du coffre ; le cœur de PRÉVOST reste sans dépendance.
+cryptography>=43

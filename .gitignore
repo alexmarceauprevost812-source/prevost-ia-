@@ -29,6 +29,7 @@ credentials*.json
 *.key
 *.p12
 *.pfx
+*.vault
 hosts.yml
 .aws/
 .ssh/

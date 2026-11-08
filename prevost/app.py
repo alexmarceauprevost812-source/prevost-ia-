@@ -312,6 +312,7 @@ HELP = '''/aide ; /quitter ; /modeles ; /historique
 /outils — registre vérifié LexOS/Kali/REA ; /agent demande — mission par outils validés
 /reseaux — inventaire privé et autorisations ; /veille-reseau — veille consentie au premier plan
 /arreter-reseau — arrêter la veille ; /retirer-reseau identifiant — retirer une autorisation
+/coffre — coffre local chiffré (ne jamais saisir de cookie ni mot de passe dans le chat)
 /lire chemin — lire un fichier et l’ajouter au contexte du prochain échange
 /ecrire chemin — saisir un contenu, finir par une ligne .fin ; aperçu et confirmation
 /coder demande — proposer fichiers et commandes avec Ollama, puis confirmer chaque action
@@ -366,6 +367,11 @@ def main(argv=None):
                     mode = {'/reseaux': 'liste', '/veille-reseau': 'veille',
                             '/arreter-reseau': 'arreter', '/retirer-reseau': 'retirer'}[verb]
                     network_main([mode, '--network', rest] if verb == '/retirer-reseau' else [mode])
+                elif verb == '/coffre':
+                    if rest.strip():
+                        raise ValueError('Utiliser /coffre seul ; les secrets se saisissent ensuite sans écho, hors conversation.')
+                    from .vault import main as vault_main
+                    vault_main([])
                 elif verb == '/agent':
                     from .agent import Agent, ModelPlanner
                     from .tools import Registry
