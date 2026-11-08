@@ -67,3 +67,36 @@ Essais réels supplémentaires :
 - CLI `prevost.agent mission` vers l’adresse réelle `http://127.0.0.1:11435` : refus de socket `Operation not permitted`, code retour 1. La boucle pilotée par un vrai modèle Ollama reste donc **non validée** ici.
 
 Aucune cible réseau scannée ou attaquée. Aucun rapport ni journal d’essai ajouté à Git. Aucune modification des lanceurs installés. Les garanties et limites des délais, confirmations, périmètres et preuves figurent dans OUTILS.md.
+
+## Inventaire réseau consenti — 8 novembre 2026
+
+**70 tests automatisés réussis** avec `python3 -B -m unittest discover -s tests -v` : les 41 tests précédents, 28 tests réseau et un test de routage des commandes de conversation.
+
+### Validation simulée réussie
+
+Toutes les données réseau de ces tests sont fabriquées : profils NetworkManager Ethernet/Wi-Fi, BSSID, passerelle, CIDR, réponses XML Nmap, cache des voisins et noms locaux. Aucun paquet de découverte n’est émis par la suite de tests réseau. Le test d’événements lance un processus Python qui produit un message simulé à la place de NetworkManager ; il vérifie réellement le nettoyage du sous-processus. Un autre test utilise un processus Python inoffensif en attente pour vérifier que la révocation persistée termine réellement le processus en cours, sans accès réseau.
+
+Les assertions couvrent : demande unique et décision persistante après relance, refus et interruption sans découverte, connexion sans terminal en attente, Wi-Fi non approuvé implicitement, liaison de l’identité au BSSID et à la passerelle, refus d’une identité Ethernet insuffisante, périmètres invalides/hors connexion/trop vastes/IPv6/options, exécution automatique uniquement après approbation, arguments ARP fixes sans audit, XML incomplet et hors périmètre, noms et sources avec incertitude, premières/dernières observations, nouveaux candidats et réapparitions, conservation des absents, absence de fusion par IP ou MAC seule, interruption et révocation pendant la collecte, refus de réenregistrer un résultat révoqué, commande d’arrêt, interruption d’un prompt en attente, rejet d’une deuxième veille, arrêt ou échec du moniteur, permissions privées, refus des dépôts Git et des liens symboliques, transaction invalide sans écriture partielle, codes de retour pour collecte ponctuelle réussie ou indisponible et routage des quatre commandes de conversation.
+
+### Validation réelle non effectuée sur le réseau utilisateur
+
+Essai réel, sans découverte d’hôtes :
+
+```bash
+python3 -B -m prevost.network connexions
+```
+
+Retour 1 : `Cannot open netlink socket: Operation not permitted`. La lecture directe de `nmcli ... connection show --active` est aussi refusée : `Could not connect: Operation not permitted`. Les exécutables locaux `nmcli`, `ip` et `nmap` sont présents ; `nmap --help` indique la version 7.95. Leur présence n’est pas une validation de leurs droits d’accès réseau.
+
+Le périmètre CIDR et l’identité du réseau à autoriser ont été demandés à l’utilisateur mais n’ont pas encore été fournis. Aucun réseau n’est donc déclaré approuvé et aucun Nmap de découverte n’a été lancé sur le réseau utilisateur. Cette session ne permet pas de valider la surveillance des connexions de l’hôte ni les droits ARP de Nmap. Les tests simulés ne remplacent pas cette validation.
+
+Pour compléter depuis un terminal hôte ayant accès au réseau, dans le dépôt :
+
+1. Exécuter `python3 -m prevost.network connexions` et contrôler l’identité affichée.
+2. Exécuter `python3 -m prevost.network veille`, saisir le CIDR dont on autorise l’inventaire, examiner l’interface et confirmer avec `oui`.
+3. Examiner `python3 -m prevost.network liste` depuis un second terminal : sources, premières/dernières dates, candidats `a_valider`, modes 700/600 dans le dossier privé.
+4. Reconnecter le même réseau : vérifier qu’il n’y a pas de nouvelle demande et qu’une collecte est effectuée ; un BSSID ou une passerelle différents nécessitent un nouvel accord.
+5. Si un appareil de test autorisé peut être connecté, observer son signalement puis vérifier l’absence de doublon au rafraîchissement. Une non-détection ARP ne prouve pas l’absence d’appareil.
+6. Exécuter `python3 -m prevost.network retirer --network IDENTIFIANT` ; vérifier que la découverte cesse sur ce réseau et que l’historique est conservé. Terminer avec `python3 -m prevost.network arreter`.
+
+Aucun test réel n’est annoncé réussi avant observation de ces résultats. Aucun audit actif, fichier distant, cookie ou mot de passe n’est collecté par ce module. Aucun service, lanceur ou privilège système n’est modifié.

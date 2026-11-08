@@ -85,3 +85,7 @@ Le périmètre du registre est `pc-local`, le dossier du projet et le diagnostic
 Un futur audit d’appareil devra enregistrer la cible exacte, la preuve d’autorisation déclarée, les opérations permises, leur durée et leurs limites hors du modèle. Toute cible découverte devra être validée séparément avant une analyse active. Un scan, même complet, n’autorise pas une attaque. Les validations offensives devront être ajoutées comme outils spécifiques, testées dans un laboratoire autorisé, et les actions sensibles confirmées séparément.
 
 Cette politique n’est pas un filtre réseau de l’hôte : un programme Python exécuté avec vos droits peut dépasser le périmètre logique. Ne confirmer aucun code d’audit actif tant que ses cibles et actions ne sont pas autorisées et revues. Les résultats d’outils ne peuvent jamais tenir lieu d’autorisation.
+
+## Inventaire réseau séparé
+
+La commande `python3 -m prevost.network veille` et `/veille-reseau` utilisent maintenant le Nmap installé pour la seule découverte ARP de CIDR explicitement approuvés. Ce module est séparé du registre et du planificateur : le modèle ne peut pas créer d’autorisation ni démarrer un audit à partir d’une découverte. Les appareils restent `a_valider`. Voir [RESEAUX.md](RESEAUX.md) pour les autorisations, les commandes d’arrêt et de révocation et le stockage privé. Les contrats et confirmations des outils existants ne changent pas.

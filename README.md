@@ -30,7 +30,7 @@ python3 -m prevost --project /tmp/mon-projet --model NOM_INSTALLE --timeout 30
 
 Pour modifier un fichier avec Ollama, le lire d’abord avec `/lire`, puis utiliser `/coder` en décrivant la modification. Refuser un fichier interrompt la mission avant les commandes. Une commande refusée, expirée ou en échec interrompt la suite du plan. Une sortie réussie ne prouve que le résultat de cette commande ; le modèle ne vérifie pas automatiquement la conformité à la demande.
 
-Sans Ollama, les commandes manuelles restent disponibles. L’interface emploie un fond noir, un bandeau rouge, PRÉVOST jaune et une invite bleu ciel dans un terminal compatible ANSI. Les séquences de contrôle provenant du modèle et des fichiers sont neutralisées. Les couleurs sont désactivées hors terminal ou avec `NO_COLOR=1`.
+Sans Ollama, les commandes manuelles restent disponibles. Dans la conversation, `/coder` et `/agent`, l’interface emploie un fond noir, le nom et l’étiquette PRÉVOST rouges, les réponses bleu ciel RGB `#87CEEB` (aussi pendant le streaming), les noms d’outils et commandes jaunes RGB `#FFFF00`, l’invite « Vous > », la saisie et les résultats bruts blancs. Les couleurs sont réinitialisées après chaque affichage et lors des interruptions. Les séquences de contrôle provenant du modèle et des fichiers sont neutralisées. Les couleurs sont désactivées hors terminal ou avec `NO_COLOR=1`.
 
 ## Historique et sauvegardes
 
@@ -48,7 +48,7 @@ La sortie est collectée dans un fichier temporaire et affichée à la fin, limi
 
 Les données de fichiers et résultats ne sont jamais exécutés comme instructions par l’application. Une consigne système demande aussi au modèle de les traiter comme données ; cela ne garantit pas l’immunité du modèle aux injections. Chaque action proposée reste soumise à votre confirmation. Ne pas lire de secrets dans une conversation. Une adresse Ollama distante exige une confirmation de transmission avant utilisation ; aucune redirection HTTP ni proxy implicite n’est suivi.
 
-Cette version reste centrée sur la programmation : pas d’intégration Kali, REA, audit réseau, téléchargement de modèles ou modification des lanceurs installés. Les composants PRÉVOST existants restent séparés et inchangés. REA et audits de cibles explicitement autorisées restent des objectifs ultérieurs.
+Les outils Kali/REA du registre sont décrits dans [OUTILS.md](OUTILS.md). L’inventaire réseau consenti est décrit dans [RESEAUX.md](RESEAUX.md). Aucun audit actif d’appareil, téléchargement de modèles ou changement des lanceurs installés n’est ajouté.
 
 ## Vérification
 
@@ -110,3 +110,9 @@ python3 -m prevost.agent demo --project /un/dossier/temporaire
 ```
 
 Dans la conversation : `/outils` et `/agent demande`. Les rapports restent locaux et exclus de Git.
+
+## Inventaire des réseaux approuvés
+
+`python3 -m prevost.network veille` (ou `/veille-reseau` dans la conversation) identifie les connexions, demande une seule fois leur périmètre et l’autorisation explicite, puis inventorie automatiquement les réseaux approuvés. Les nouveaux candidats restent « à valider » ; aucune autorisation d’audit n’est déduite de la découverte.
+
+`python3 -m prevost.network arreter` arrête la veille ; `python3 -m prevost.network retirer --network IDENTIFIANT` retire une autorisation. `/reseaux`, `/arreter-reseau` et `/retirer-reseau IDENTIFIANT` sont aussi disponibles. L’état reste privé hors Git. Voir [RESEAUX.md](RESEAUX.md) pour les commandes d’approbation, les prérequis et les limites.
