@@ -32,8 +32,8 @@ def safe(value):
 
 
 class UI:
-    RED = '40;91'
-    GOLD = '40;38;2;255;215;0'
+    RED = '38;2;255;32;32'
+    GOLD = '38;2;255;215;0'
     SKY = '40;38;2;135;206;250'
     WHITE = '40;97'
 
@@ -41,7 +41,11 @@ class UI:
         self.color = sys.stdout.isatty() and not os.environ.get('NO_COLOR')
 
     def paint(self, code, text):
-        return f'\033[{code}m{safe(text)}\033[0m' if self.color else safe(text)
+        if not self.color:
+            return safe(text)
+        # Séparer le fond pour émettre les séquences RGB exactes de la palette.
+        background = '\033[40m' if code in (self.RED, self.GOLD) else ''
+        return f'{background}\033[{code}m{safe(text)}\033[0m'
 
     def show(self, text):
         print(self.paint(self.RED, text))

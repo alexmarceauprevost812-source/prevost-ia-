@@ -30,11 +30,11 @@ class AppTests(unittest.TestCase):
             ui.raw('brut\x1b[31m\x9b0m')
             self.assertEqual(ui.answer(iter(['Bon', 'jour'])), 'Bonjour')
         self.assertEqual(output.getvalue(),
-            '\x1b[40;91mPRÉVOST\x1b[0m\n'
-            '\x1b[40;38;2;255;215;0mpython.run\x1b[0m\n'
+            '\x1b[40m\x1b[38;2;255;32;32mPRÉVOST\x1b[0m\n'
+            '\x1b[40m\x1b[38;2;255;215;0mpython.run\x1b[0m\n'
             '\x1b[40;97mbrut�[31m�0m\x1b[0m\n'
-            '\x1b[40;91mPRÉVOST > \x1b[0m'
-            '\x1b[40;91mBon\x1b[0m\x1b[40;91mjour\x1b[0m\n')
+            '\x1b[40m\x1b[38;2;255;32;32mPRÉVOST > \x1b[0m'
+            '\x1b[40m\x1b[38;2;255;32;32mBon\x1b[0m\x1b[40m\x1b[38;2;255;32;32mjour\x1b[0m\n')
 
     def test_input_resets_on_return_and_interrupt(self):
         ui = UI()
