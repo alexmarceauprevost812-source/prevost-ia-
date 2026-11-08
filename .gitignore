@@ -1,0 +1,75 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.Python
+.venv/
+venv/
+env/
+build/
+dist/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage*
+htmlcov/
+
+# Secrets et configurations privées
+.env
+.env.*
+*.env
+*.env.*
+secrets/
+.secrets/
+credentials/
+credentials*.json
+*credentials*.yaml
+*credentials*.yml
+*.pem
+*.key
+*.p12
+*.pfx
+hosts.yml
+.aws/
+.ssh/
+
+# Modèles et poids locaux
+*.[gG][gG][uU][fF]
+*.safetensors
+models/
+.ollama/
+
+# Historiques, mémoire, sessions et données locales
+history/
+histories/
+historiques/
+*history*
+memory/
+memoire/
+mémoire/
+.prevost/
+.prevost-*/
+sessions/
+*.jsonl
+*.sqlite*
+*.db
+*.log
+
+# Rapports et captures d’audit
+reports/
+rapports/
+audits/
+audit-reports/
+evidence/
+captures/
+*.pcap
+*.pcapng
+*.har
+*.saz
+
+# Sauvegardes et fichiers temporaires
+backups/
+*.bak
+*.tmp
+.DS_Store
+*~
