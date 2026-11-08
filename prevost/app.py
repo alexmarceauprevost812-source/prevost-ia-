@@ -310,6 +310,8 @@ def code_mission(client, model, project, request, ui, timeout):
 
 HELP = '''/aide ; /quitter ; /modeles ; /historique
 /outils — registre vérifié LexOS/Kali/REA ; /agent demande — mission par outils validés
+/reseaux — inventaire privé et autorisations ; /veille-reseau — veille consentie au premier plan
+/arreter-reseau — arrêter la veille ; /retirer-reseau identifiant — retirer une autorisation
 /lire chemin — lire un fichier et l’ajouter au contexte du prochain échange
 /ecrire chemin — saisir un contenu, finir par une ligne .fin ; aperçu et confirmation
 /coder demande — proposer fichiers et commandes avec Ollama, puis confirmer chaque action
@@ -359,6 +361,11 @@ def main(argv=None):
                 elif verb == '/outils':
                     from .tools import Registry
                     ui.tool(json.dumps(Registry(project, ui.confirm).catalogue(), ensure_ascii=False, indent=2))
+                elif verb in ('/reseaux', '/veille-reseau', '/arreter-reseau', '/retirer-reseau'):
+                    from .network import main as network_main
+                    mode = {'/reseaux': 'liste', '/veille-reseau': 'veille',
+                            '/arreter-reseau': 'arreter', '/retirer-reseau': 'retirer'}[verb]
+                    network_main([mode, '--network', rest] if verb == '/retirer-reseau' else [mode])
                 elif verb == '/agent':
                     from .agent import Agent, ModelPlanner
                     from .tools import Registry

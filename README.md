@@ -48,7 +48,7 @@ La sortie est collectée dans un fichier temporaire et affichée à la fin, limi
 
 Les données de fichiers et résultats ne sont jamais exécutés comme instructions par l’application. Une consigne système demande aussi au modèle de les traiter comme données ; cela ne garantit pas l’immunité du modèle aux injections. Chaque action proposée reste soumise à votre confirmation. Ne pas lire de secrets dans une conversation. Une adresse Ollama distante exige une confirmation de transmission avant utilisation ; aucune redirection HTTP ni proxy implicite n’est suivi.
 
-Cette version reste centrée sur la programmation : pas d’intégration Kali, REA, audit réseau, téléchargement de modèles ou modification des lanceurs installés. Les composants PRÉVOST existants restent séparés et inchangés. REA et audits de cibles explicitement autorisées restent des objectifs ultérieurs.
+Les outils Kali/REA du registre sont décrits dans [OUTILS.md](OUTILS.md). L’inventaire réseau consenti est décrit dans [RESEAUX.md](RESEAUX.md). Aucun audit actif d’appareil, téléchargement de modèles ou changement des lanceurs installés n’est ajouté.
 
 ## Vérification
 
@@ -110,3 +110,9 @@ python3 -m prevost.agent demo --project /un/dossier/temporaire
 ```
 
 Dans la conversation : `/outils` et `/agent demande`. Les rapports restent locaux et exclus de Git.
+
+## Inventaire des réseaux approuvés
+
+`python3 -m prevost.network veille` (ou `/veille-reseau` dans la conversation) identifie les connexions, demande une seule fois leur périmètre et l’autorisation explicite, puis inventorie automatiquement les réseaux approuvés. Les nouveaux candidats restent « à valider » ; aucune autorisation d’audit n’est déduite de la découverte.
+
+`python3 -m prevost.network arreter` arrête la veille ; `python3 -m prevost.network retirer --network IDENTIFIANT` retire une autorisation. `/reseaux`, `/arreter-reseau` et `/retirer-reseau IDENTIFIANT` sont aussi disponibles. L’état reste privé hors Git. Voir [RESEAUX.md](RESEAUX.md) pour les commandes d’approbation, les prérequis et les limites.
