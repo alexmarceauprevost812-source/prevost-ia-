@@ -97,12 +97,13 @@ class Agent:
                     termination = 'appel_identique_refuse'
                     break
                 attempted.add(signature)
+                self.ui.tool('Appel proposé : ' + proposal['tool'])
                 result = self.registry.execute(proposal['tool'], proposal['parameters'],
                     remaining=self.max_seconds - (time.monotonic() - started))
                 results.append(result)
-                self.ui.show(f"Résultat : {result['status']} ; vérifié : {result['verified']}")
+                self.ui.tool(f"Résultat : {result['status']} ; vérifié : {result['verified']}")
                 # Lire la vraie sortie, jamais une reformulation inventée du modèle.
-                self.ui.show(json.dumps(result, ensure_ascii=False, indent=2))
+                self.ui.raw(json.dumps(result, ensure_ascii=False, indent=2))
                 if result['status'] in ('cancelled', 'rejected'):
                     termination = 'annulation' if result['status'] == 'cancelled' else 'action_refusee'
                     break
@@ -196,11 +197,11 @@ def main(argv=None):
         project = Project(args.project)
         registry = Registry(project, ui.confirm, cancel=cancel)
         if args.mode == 'catalogue':
-            ui.show(json.dumps(registry.catalogue(), ensure_ascii=False, indent=2))
+            ui.tool(json.dumps(registry.catalogue(), ensure_ascii=False, indent=2))
             return 0
         if args.mode == 'outil':
             result = registry.execute(args.request, json.loads(args.params), remaining=args.seconds)
-            ui.show(json.dumps(result, ensure_ascii=False, indent=2))
+            ui.raw(json.dumps(result, ensure_ascii=False, indent=2))
             return 0 if result['verified'] else 1
         if args.mode == 'mission':
             import os

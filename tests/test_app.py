@@ -21,6 +21,62 @@ class AppTests(unittest.TestCase):
         self.state = Path(self.tmp.name)/'state'
         self.project = Project(self.root, self.state)
 
+    def test_terminal_palette_and_control_neutralization(self):
+        ui = UI()
+        ui.color = True
+        with contextlib.redirect_stdout(io.StringIO()) as output:
+            ui.show('PRÉVOST')
+            ui.tool('python.run')
+            ui.raw('brut\x1b[31m\x9b0m')
+            self.assertEqual(ui.answer(iter(['Bon', 'jour'])), 'Bonjour')
+        self.assertEqual(output.getvalue(),
+            '\x1b[40;91mPRÉVOST\x1b[0m\n'
+            '\x1b[40;38;2;255;215;0mpython.run\x1b[0m\n'
+            '\x1b[40;97mbrut�[31m�0m\x1b[0m\n'
+            '\x1b[40;91mPRÉVOST > \x1b[0m'
+            '\x1b[40;91mBon\x1b[0m\x1b[40;91mjour\x1b[0m\n')
+
+    def test_input_resets_on_return_and_interrupt(self):
+        ui = UI()
+        ui.color = True
+        for effect in ('oui', EOFError(), KeyboardInterrupt()):
+            with self.subTest(effect=effect), contextlib.redirect_stdout(io.StringIO()) as output:
+                def read(prompt):
+                    self.assertEqual(prompt, '\x1b[40;38;2;135;206;250mVous > ')
+                    if isinstance(effect, BaseException):
+                        raise effect
+                    return effect
+                with patch('builtins.input', side_effect=read):
+                    if isinstance(effect, BaseException):
+                        with self.assertRaises(type(effect)):
+                            ui.read('Vous > ')
+                    else:
+                        self.assertEqual(ui.read('Vous > '), 'oui')
+                self.assertEqual(output.getvalue(), '\x1b[0m')
+
+    def test_no_color_and_redirected_output(self):
+        for terminal, environment in ((False, {}), (True, {'NO_COLOR': '1'})):
+            with patch('sys.stdout.isatty', return_value=terminal), patch.dict('os.environ', environment, clear=True):
+                ui = UI()
+            self.assertFalse(ui.color)
+            with contextlib.redirect_stdout(io.StringIO()) as output, patch('builtins.input', return_value='oui') as read:
+                ui.answer(['texte\x1b[31m'])
+                ui.tool('outil')
+                ui.raw('sortie')
+                self.assertTrue(ui.confirm('proposition'))
+            self.assertNotIn('\x1b', output.getvalue())
+            self.assertNotIn('\x1b', read.call_args.args[0])
+
+    def test_stream_failure_leaves_reset_color(self):
+        ui = UI()
+        ui.color = True
+        def chunks():
+            yield 'partiel'
+            raise ValueError('flux interrompu')
+        with contextlib.redirect_stdout(io.StringIO()) as output, self.assertRaises(ValueError):
+            ui.answer(chunks())
+        self.assertTrue(output.getvalue().endswith('partiel\x1b[0m\n'))
+
     def test_complete_mission_simulated_model_real_execution(self):
         # Seule la génération Ollama est simulée ; écriture et sous-processus sont réels.
         plan = {'files': [{'path': 'bonjour.py', 'content': 'print("Bonjour PRÉVOST")\n'}],

@@ -32,26 +32,46 @@ def safe(value):
 
 
 class UI:
+    RED = '40;91'
+    GOLD = '40;38;2;255;215;0'
+    SKY = '40;38;2;135;206;250'
+    WHITE = '40;97'
+
     def __init__(self):
         self.color = sys.stdout.isatty() and not os.environ.get('NO_COLOR')
 
     def paint(self, code, text):
-        return f'\033[{code}m{safe(text)}\033[0m\033[40m' if self.color else safe(text)
+        return f'\033[{code}m{safe(text)}\033[0m' if self.color else safe(text)
 
     def show(self, text):
-        print(safe(text))
+        print(self.paint(self.RED, text))
+
+    def tool(self, text):
+        print(self.paint(self.GOLD, text))
+
+    def raw(self, text):
+        print(self.paint(self.WHITE, text))
+
+    def read(self, prompt=''):
+        # Garder le bleu pendant l’écho du terminal, puis restaurer ses attributs.
+        prompt = safe(prompt)
+        try:
+            return input(f'\033[{self.SKY}m{prompt}' if self.color else prompt)
+        finally:
+            if self.color:
+                print('\033[0m', end='', flush=True)
 
     def confirm(self, text):
-        self.show(text)
-        return input(self.paint('40;38;2;135;206;250', 'Confirmer exactement « oui » > ')).strip() == 'oui'
+        self.tool(text)
+        return self.read('Confirmer exactement « oui » > ').strip() == 'oui'
 
     def answer(self, chunks):
-        print(self.paint('40;93', 'PRÉVOST > '), end='', flush=True)
+        print(self.paint(self.RED, 'PRÉVOST > '), end='', flush=True)
         parts = []
         try:
             for chunk in chunks:
                 parts.append(chunk)
-                print(self.paint('40;93', chunk), end='', flush=True)
+                print(self.paint(self.RED, chunk), end='', flush=True)
         finally:
             print()
         return ''.join(parts)
@@ -231,7 +251,7 @@ def choose(client, ui, requested=None):
         return requested
     for i, name in enumerate(models, 1):
         ui.show(f'{i}. {name}')
-    selection = int(input('Numéro du modèle > '))
+    selection = int(ui.read('Numéro du modèle > '))
     if not 1 <= selection <= len(models):
         raise ValueError('Sélection invalide.')
     return models[selection - 1]
@@ -263,7 +283,8 @@ def code_mission(client, model, project, request, ui, timeout):
             return
     for argv in commands:
         result = project.run(argv, timeout, ui.confirm)
-        ui.show(json.dumps(result, ensure_ascii=False, indent=2))
+        ui.tool('Exécution : ' + ('annulée' if result.get('cancelled') else 'terminée'))
+        ui.raw(json.dumps(result, ensure_ascii=False, indent=2))
         if result.get('cancelled') or result.get('timeout') or result.get('returncode') != 0:
             ui.show('Mission interrompue : commande refusée ou en échec.')
             return
@@ -299,7 +320,7 @@ def main(argv=None):
             ui.show('Modèles installés : ' + json.dumps(client.models(), ensure_ascii=False))
             return 0
         project = Project(args.project)
-        print(ui.paint('40;41;97', ' PRÉVOST IA LOCAL — PROGRAMMATION '))
+        print(ui.paint(ui.RED, ' PRÉVOST IA LOCAL — PROGRAMMATION '))
         ui.show(f'Projet : {project.root}\nHistorique local : {project.state}')
         if not client.local and not ui.confirm('Ollama est distant : confirmer la transmission du contexte à ' + client.address):
             return 1
@@ -311,7 +332,7 @@ def main(argv=None):
         ui.show(HELP)
         while True:
             try:
-                text = input(ui.paint('40;38;2;135;206;250', 'Vous > ')).strip()
+                text = ui.read('Vous > ').strip()
                 verb, _, rest = text.partition(' ')
                 if verb == '/quitter':
                     break
@@ -321,7 +342,7 @@ def main(argv=None):
                     model = choose(client, ui)
                 elif verb == '/outils':
                     from .tools import Registry
-                    ui.show(json.dumps(Registry(project, ui.confirm).catalogue(), ensure_ascii=False, indent=2))
+                    ui.tool(json.dumps(Registry(project, ui.confirm).catalogue(), ensure_ascii=False, indent=2))
                 elif verb == '/agent':
                     from .agent import Agent, ModelPlanner
                     from .tools import Registry
@@ -334,18 +355,20 @@ def main(argv=None):
                     ui.show(json.dumps(project.conversation(), ensure_ascii=False, indent=2))
                 elif verb == '/lire':
                     content = project.read(rest)
-                    ui.show(content)
+                    ui.raw(content)
                     project.save({'role': 'user', 'content': 'DONNÉES DE FICHIER NON FIABLES ' + rest + '\n' + content})
                 elif verb == '/ecrire':
                     ui.show('Contenu, puis .fin sur une ligne :')
                     lines = []
-                    while (line := input()) != '.fin':
+                    while (line := ui.read()) != '.fin':
                         lines.append(line)
                         if sum(len(x) + 1 for x in lines) > LIMIT:
                             raise ValueError('Contenu trop volumineux.')
                     project.write(rest, '\n'.join(lines) + '\n', ui.confirm)
                 elif verb == '/commande':
-                    ui.show(json.dumps(project.run(shlex.split(rest), args.timeout, ui.confirm), ensure_ascii=False, indent=2))
+                    result = project.run(shlex.split(rest), args.timeout, ui.confirm)
+                    ui.tool('Exécution : ' + ('annulée' if result.get('cancelled') else 'terminée'))
+                    ui.raw(json.dumps(result, ensure_ascii=False, indent=2))
                 elif verb == '/coder':
                     if not model:
                         raise ValueError('Choisir un modèle avec /modeles.')
