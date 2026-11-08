@@ -47,6 +47,23 @@ class ToolsTests(unittest.TestCase):
         self.assertFalse(self.registry.scope['active_network_audit'])
         self.assertFalse((self.project.root/'bad').exists())
 
+    def test_agent_terminal_theme_and_confirmation(self):
+        ui = UI()
+        ui.color = True
+        registry = Registry(self.project, ui.confirm, discover=False)
+        steps = [{'plan': 'Créer un fichier.', 'tool': 'project.write',
+                  'parameters': {'path': 'theme.txt', 'content': 'texte\x1b[31m'}}]
+        with contextlib.redirect_stdout(io.StringIO()) as output, patch('builtins.input', return_value='oui'):
+            result = Agent(registry, ui).run('Vérifier le thème', scripted(steps))
+        text = output.getvalue()
+        self.assertIn('\x1b[38;2;135;206;235mÉtape 1', text)
+        self.assertIn('\x1b[38;2;255;255;0mAppel proposé : project.write\x1b[0m', text)
+        self.assertIn('\x1b[38;2;255;255;0mProposition de fichier', text)
+        self.assertIn('\x1b[40;97m{', text)
+        self.assertIn('texte�[31m', text)
+        self.assertTrue(text.endswith('\x1b[0m'))
+        self.assertTrue(result['results'][0]['verified'])
+
     def test_verification_failure_not_success(self):
         self.project.write('p.py', 'print("actual")\n', lambda _: True)
         result = self.registry.execute('python.run', {'path': 'p.py', 'expected_stdout': 'invented\n'})

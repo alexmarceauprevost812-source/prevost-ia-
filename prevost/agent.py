@@ -230,6 +230,8 @@ def main(argv=None):
     except (OSError, ValueError, TypeError) as error:
         ui.show('Erreur : ' + str(error))
         return 1
+    finally:
+        ui.reset()
 
 
 if __name__ == '__main__':

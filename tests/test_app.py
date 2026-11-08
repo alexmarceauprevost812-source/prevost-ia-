@@ -79,6 +79,16 @@ class AppTests(unittest.TestCase):
                     ui.answer(chunks())
                 self.assertTrue(output.getvalue().endswith('partiel\x1b[0m\x1b[0m\n'))
 
+    def test_interrupted_display_resets_terminal(self):
+        ui = UI()
+        ui.color = True
+        for display in (ui.show, ui.tool, ui.raw):
+            with self.subTest(display=display), patch('builtins.print', side_effect=[KeyboardInterrupt(), None]) as write:
+                with self.assertRaises(KeyboardInterrupt):
+                    display('texte')
+                self.assertEqual(write.call_args.args, ('\x1b[0m',))
+                self.assertTrue(write.call_args.kwargs['flush'])
+
     def test_complete_mission_simulated_model_real_execution(self):
         # Seule la génération Ollama est simulée ; écriture et sous-processus sont réels.
         plan = {'files': [{'path': 'bonjour.py', 'content': 'print("Bonjour PRÉVOST")\n'}],
@@ -90,11 +100,11 @@ class AppTests(unittest.TestCase):
                 yield text[30:]
         ui = UI()
         ui.color = True
-        ui.confirm = lambda prompt: True
-        with contextlib.redirect_stdout(io.StringIO()) as captured:
+        with contextlib.redirect_stdout(io.StringIO()) as captured, patch('builtins.input', return_value='oui'):
             code_mission(Model(), 'simulé', self.project, 'Créer un programme de salutation', ui, 5)
         self.assertIn('\x1b[38;2;135;206;235m', captured.getvalue())
         self.assertIn('\x1b[38;2;255;255;0mExécution', captured.getvalue())
+        self.assertIn('\x1b[38;2;255;255;0mCommande proposée', captured.getvalue())
         self.assertIn('\x1b[40;97m{', captured.getvalue())
         self.assertIn('Bonjour PRÉVOST', self.project.read('bonjour.py'))
         records = [json.loads(line) for line in self.project.record.read_text().splitlines()]

@@ -48,13 +48,25 @@ class UI:
         return f'{background}\033[{code}m{safe(text)}\033[0m'
 
     def show(self, text):
-        print(self.paint(self.SKY, text))
+        self.display(self.SKY, text)
 
     def tool(self, text):
-        print(self.paint(self.YELLOW, text))
+        self.display(self.YELLOW, text)
 
     def raw(self, text):
-        print(self.paint(self.WHITE, text))
+        self.display(self.WHITE, text)
+
+    def reset(self):
+        if self.color:
+            print('\033[0m', end='', flush=True)
+
+    def display(self, code, text, **kwargs):
+        try:
+            print(self.paint(code, text), **kwargs)
+        except BaseException:
+            # Même une interruption pendant l’écriture doit restaurer le terminal.
+            self.reset()
+            raise
 
     def read(self, prompt=''):
         # Garder le blanc pendant l’écho du terminal, puis restaurer ses attributs.
@@ -62,23 +74,21 @@ class UI:
         try:
             return input(f'\033[{self.WHITE}m{prompt}' if self.color else prompt)
         finally:
-            if self.color:
-                print('\033[0m', end='', flush=True)
+            self.reset()
 
     def confirm(self, text):
         self.tool(text)
         return self.read('Confirmer exactement « oui » > ').strip() == 'oui'
 
     def answer(self, chunks):
-        print(self.paint(self.RED, 'PRÉVOST > '), end='', flush=True)
         parts = []
         try:
+            self.display(self.RED, 'PRÉVOST > ', end='', flush=True)
             for chunk in chunks:
                 parts.append(chunk)
                 print(self.paint(self.SKY, chunk), end='', flush=True)
         finally:
-            if self.color:
-                print('\033[0m', end='', flush=True)
+            self.reset()
             print()
         return ''.join(parts)
 
@@ -326,7 +336,7 @@ def main(argv=None):
             ui.show('Modèles installés : ' + json.dumps(client.models(), ensure_ascii=False))
             return 0
         project = Project(args.project)
-        print(ui.paint(ui.RED, ' PRÉVOST IA LOCAL — PROGRAMMATION '))
+        ui.display(ui.RED, ' PRÉVOST IA LOCAL — PROGRAMMATION ')
         ui.show(f'Projet : {project.root}\nHistorique local : {project.state}')
         if not client.local and not ui.confirm('Ollama est distant : confirmer la transmission du contexte à ' + client.address):
             return 1
@@ -397,5 +407,4 @@ def main(argv=None):
         ui.show('Erreur : ' + str(error))
         return 1
     finally:
-        if ui.color:
-            print('\033[0m', end='', flush=True)
+        ui.reset()
