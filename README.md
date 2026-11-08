@@ -99,3 +99,14 @@ La déduplication persiste entre lancements : une même empreinte « contrôle +
 - Mises à jour issues du cache APT : fraîcheur et pertinence non garanties, aucune évaluation automatique des vulnérabilités.
 - Le diagnostic constate des faits de collecte, pas une certification de sécurité. Les collectes indisponibles restent inconnues.
 - Aucun pare-feu, redémarrage, installation, suppression ou autre mesure de protection sensible n’est exécuté par ce module.
+
+## Agent utilisant des outils
+
+Le registre et la nouvelle boucle de mission sont documentés dans [OUTILS.md](OUTILS.md). Exemple :
+
+```bash
+python3 -m prevost.agent catalogue --project /chemin/du/projet
+python3 -m prevost.agent demo --project /un/dossier/temporaire
+```
+
+Dans la conversation : `/outils` et `/agent demande`. Les rapports restent locaux et exclus de Git.

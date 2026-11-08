@@ -49,3 +49,21 @@ Essai réel de `python3 -B -m prevost.guardian diagnostic` :
 Essai réel de veille dans un dossier temporaire : deux collectes à une seconde d’intervalle, trois alertes initiales correspondant aux collectes refusées, aucun doublon. Relance réelle d’une troisième collecte avec le même dossier : journal conservé, aucune alerte répétée. Assertions Python vérifiées sur les enregistrements du journal. Aucun port, service, paquet ni réglage système n’a été modifié. Les données de test temporaires n’ont pas été ajoutées au dépôt.
 
 La boucle infinie, les notifications graphiques, la collecte systemd/netlink hors de cette session restreinte et la surveillance durable en production ne sont pas déclarées validées. La veille s’exécute uniquement quand sa commande est active.
+
+## Registre et boucle d’outils — essais du 8 novembre 2026
+
+35 tests automatisés réussis : les 18 précédents sont conservés et 17 tests supplémentaires couvrent la mission complète, les paramètres et outils refusés, la sortie attendue incorrecte, les confirmations refusées, le changement du code pendant la confirmation, l’indisponibilité, les limites d’étapes, l’appel identique, le plan invalide, les sorties traitées comme données, le délai réel, la sortie excessive, l’entrée standard réelle, l’annulation réelle, l’outil manquant et les rapports d’échec.
+
+Le protocole du planificateur est testé avec une **réponse de transport simulée**. Le décodage du flux Ollama reste aussi couvert par les simulations précédentes ; aucune simulation n’est présentée comme un appel réel à un modèle.
+
+Essais réels supplémentaires :
+
+- Mission par registre : création d’un programme dans un dossier temporaire, relecture, exécution de Python, comparaison exacte de `PRÉVOST : mission locale vérifiée\n`, journal et rapport Markdown présents. Aucun modèle requis pour cette mission prédéfinie.
+- Même mission via la CLI `prevost.agent demo`, avec trois confirmations explicites fournies par le pilote d’essai : trois résultats vérifiés, code retour 0, rapport relu et vérifié.
+- CLI `prevost.agent diagnostic` : rapport produit, disque et diagnostic REA vérifiés, systemd et ports indisponibles ; code retour 1 pour diagnostic partiel, sans prétendre que le PC est sain.
+- `rea.doctor` via le registre : JSON vérifié, `healthy=false` ; aucune réparation appliquée.
+- Compilation locale d’un `.pyc` temporaire puis inspection statique réelle par REA : Evidence JSON identifiée, retour 0, bytecode cible non exécuté par REA.
+- Registre réel : outils de fichiers/Python/disque et CLI REA disponibles ; ports, systemd utilisateur et conteneur Kali indisponibles dans cette session restreinte. Aucun outil Kali prétendu présent.
+- CLI `prevost.agent mission` vers l’adresse réelle `http://127.0.0.1:11435` : refus de socket `Operation not permitted`, code retour 1. La boucle pilotée par un vrai modèle Ollama reste donc **non validée** ici.
+
+Aucune cible réseau scannée ou attaquée. Aucun rapport ni journal d’essai ajouté à Git. Aucune modification des lanceurs installés. Les garanties et limites des délais, confirmations, périmètres et preuves figurent dans OUTILS.md.
