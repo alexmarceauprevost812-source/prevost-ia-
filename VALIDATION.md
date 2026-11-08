@@ -34,3 +34,18 @@ Sur le terminal LexOS disposant de l’accès réseau local : lancer le diagnost
 Couleurs visuelles dans un terminal graphique, génération réelle Ollama, serveur distant, processus se détachant du groupe et résistance à un acteur modifiant simultanément l’arborescence pendant une écriture. Les vérifications de chemin et de contenu réduisent les erreurs courantes mais ne constituent pas une isolation de sécurité face à cet acteur.
 
 Aucun lanceur installé n’a été modifié. Aucune publication GitHub n’est revendiquée.
+
+## Extension gardien local
+
+18 tests réussis au total après ajout du diagnostic et de la veille. Les six nouveaux tests couvrent : refus netlink malgré un code retour 0, outil absent, commandes de collecte fixes et locales, seuil disque, changement simulé de port, déduplication, reprise et journal privé. Les changements de ports et seuils de disque sont **simulés**, sans modifier le système pour les provoquer.
+
+Essai réel de `python3 -B -m prevost.guardian diagnostic` :
+
+- Disque racine lisible : environ 47,1 % d’espace libre au moment de l’essai.
+- Cache APT lisible ; mises à jour listées, sans rafraîchissement ni installation.
+- systemd utilisateur et système : bus refusé (`Operation not permitted`).
+- Ports : sockets netlink refusées. `ss` retourne néanmoins 0 ; le diagnostic classe bien cette collecte comme indisponible.
+
+Essai réel de veille dans un dossier temporaire : deux collectes à une seconde d’intervalle, trois alertes initiales correspondant aux collectes refusées, aucun doublon. Relance réelle d’une troisième collecte avec le même dossier : journal conservé, aucune alerte répétée. Assertions Python vérifiées sur les enregistrements du journal. Aucun port, service, paquet ni réglage système n’a été modifié. Les données de test temporaires n’ont pas été ajoutées au dépôt.
+
+La boucle infinie, les notifications graphiques, la collecte systemd/netlink hors de cette session restreinte et la surveillance durable en production ne sont pas déclarées validées. La veille s’exécute uniquement quand sa commande est active.
