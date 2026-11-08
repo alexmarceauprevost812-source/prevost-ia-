@@ -206,6 +206,19 @@ class AppTests(unittest.TestCase):
         self.assertEqual([call.args[0] for call in network_main.call_args_list],
                          [['liste'], ['arreter'], ['retirer', '--network', 'identifiant'], ['veille']])
 
+    def test_vault_stays_out_of_model_and_conversation_history(self):
+        from prevost.app import main
+        secret = 'COOKIE_FICTIF_NE_PAS_JOURNALISER'
+        with patch('prevost.app.Project', return_value=self.project), patch.object(Ollama, 'models', return_value=['simule']), \
+             patch('builtins.input', side_effect=['/coffre', '/coffre ' + secret, '/quitter']), \
+             patch('prevost.vault.main', return_value=0) as vault_main, patch.object(Ollama, 'chat') as chat, \
+             contextlib.redirect_stdout(io.StringIO()) as output:
+            self.assertEqual(main(['--project', str(self.root), '--model', 'simule', '--ollama', 'http://127.0.0.1:11434']), 0)
+        vault_main.assert_called_once_with([])
+        chat.assert_not_called()
+        self.assertFalse(self.project.record.exists())
+        self.assertNotIn(secret, output.getvalue())
+
 
 def shlex_executable():
     import shlex

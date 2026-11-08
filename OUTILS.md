@@ -89,3 +89,5 @@ Cette politique n’est pas un filtre réseau de l’hôte : un programme Python
 ## Inventaire réseau séparé
 
 La commande `python3 -m prevost.network veille` et `/veille-reseau` utilisent maintenant le Nmap installé pour la seule découverte ARP de CIDR explicitement approuvés. Ce module est séparé du registre et du planificateur : le modèle ne peut pas créer d’autorisation ni démarrer un audit à partir d’une découverte. Les appareils restent `a_valider`. Voir [RESEAUX.md](RESEAUX.md) pour les autorisations, les commandes d’arrêt et de révocation et le stockage privé. Les contrats et confirmations des outils existants ne changent pas.
+
+Le dialogue manuel `/scan [cible]` (ou `scan complet`, avec tolérance pour `scam complet`) propose séparément `nmap -v -A CIBLE`. Il demande une cible exacte et une confirmation explicite du droit d’effectuer ce scan actif. Il n’est pas un outil du registre accessible au modèle et ne transforme pas l’accord d’inventaire en accord d’audit. Voir le [README](README.md#scan-nmap-demandé-par-lutilisateur).

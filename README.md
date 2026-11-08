@@ -1,6 +1,6 @@
 # PRÉVOST IA Local — v1
 
-Assistant Python de programmation locale avec Ollama, sans dépendance Python externe. Python 3.10+ et Linux sont requis pour l’arrêt des groupes de processus.
+Assistant Python de programmation locale avec Ollama. Le cœur fonctionne sans dépendance Python externe ; le coffre optionnel utilise `cryptography`. Python 3.10+ et Linux sont requis pour l’arrêt des groupes de processus.
 
 ## Lancement
 
@@ -26,6 +26,7 @@ python3 -m prevost --project /tmp/mon-projet --model NOM_INSTALLE --timeout 30
 - `/ecrire chemin` : saisir un fichier complet ; terminer par `.fin` sur sa propre ligne.
 - `/coder demande` : demander à Ollama un plan de fichiers et de commandes. Le plan apparaît progressivement ; les différences de chaque fichier et chaque commande nécessitent ensuite un `oui` explicite.
 - `/commande python3 programme.py` : proposer puis exécuter une commande après confirmation.
+- `/scan [cible]`, `scan complet` ou `scam complet` : demander une cible précise et proposer `nmap -v -A CIBLE` avec une autorisation distincte, même sans modèle disponible.
 - `/historique` : afficher les derniers échanges ; `/aide` et `/quitter`.
 
 Pour modifier un fichier avec Ollama, le lire d’abord avec `/lire`, puis utiliser `/coder` en décrivant la modification. Refuser un fichier interrompt la mission avant les commandes. Une commande refusée, expirée ou en échec interrompt la suite du plan. Une sortie réussie ne prouve que le résultat de cette commande ; le modèle ne vérifie pas automatiquement la conformité à la demande.
@@ -33,6 +34,8 @@ Pour modifier un fichier avec Ollama, le lire d’abord avec `/lire`, puis utili
 Sans Ollama, les commandes manuelles restent disponibles. Dans la conversation, `/coder` et `/agent`, l’interface emploie un fond noir, le nom et l’étiquette PRÉVOST rouges, les réponses bleu ciel RGB `#87CEEB` (aussi pendant le streaming), les noms d’outils et commandes jaunes RGB `#FFFF00`, l’invite « Vous > », la saisie et les résultats bruts blancs. Les couleurs sont réinitialisées après chaque affichage et lors des interruptions. Les séquences de contrôle provenant du modèle et des fichiers sont neutralisées. Les couleurs sont désactivées hors terminal ou avec `NO_COLOR=1`.
 
 ## Historique et sauvegardes
+
+Le [coffre local](COFFRE.md), accessible par `/coffre`, conserve uniquement les cookies de vos propres comptes que vous fournissez explicitement, chiffrés par phrase de passe sur votre appareil. Les valeurs ne sont ni affichées, ni ajoutées au modèle ou à l’historique. Le stockage n’autorise pas l’utilisation par un outil ; aucun branchement à Themus n’est encore effectué.
 
 Les échanges, résultats de commandes et sauvegardes des fichiers modifiés restent dans `~/.local/share/prevost-ia-local/<empreinte-du-chemin-du-projet>/`, hors du dépôt. À la réouverture du même dossier, les vingt derniers messages sont repris, avec une lecture bornée à 200 Ko d’historique. Le fichier de journal est privé (mode 600), son dossier en mode 700. Les sauvegardes permettent une restauration manuelle ; aucune suppression automatique n’est effectuée. Déplacer le projet change son identifiant de mémoire.
 
@@ -48,7 +51,7 @@ La sortie est collectée dans un fichier temporaire et affichée à la fin, limi
 
 Les données de fichiers et résultats ne sont jamais exécutés comme instructions par l’application. Une consigne système demande aussi au modèle de les traiter comme données ; cela ne garantit pas l’immunité du modèle aux injections. Chaque action proposée reste soumise à votre confirmation. Ne pas lire de secrets dans une conversation. Une adresse Ollama distante exige une confirmation de transmission avant utilisation ; aucune redirection HTTP ni proxy implicite n’est suivi.
 
-Les outils Kali/REA du registre sont décrits dans [OUTILS.md](OUTILS.md). L’inventaire réseau consenti est décrit dans [RESEAUX.md](RESEAUX.md). Aucun audit actif d’appareil, téléchargement de modèles ou changement des lanceurs installés n’est ajouté.
+Les outils Kali/REA du registre sont décrits dans [OUTILS.md](OUTILS.md). L’inventaire réseau consenti est décrit dans [RESEAUX.md](RESEAUX.md). Le scan actif Nmap est proposé uniquement sur demande explicite de l’utilisateur, avec cible exacte et confirmation distincte. Aucun audit n’est déclenché par l’inventaire ou une réponse du modèle. Aucun téléchargement de modèles ou changement des lanceurs installés n’est ajouté.
 
 ## Vérification
 
@@ -116,3 +119,11 @@ Dans la conversation : `/outils` et `/agent demande`. Les rapports restent locau
 `python3 -m prevost.network veille` (ou `/veille-reseau` dans la conversation) identifie les connexions, demande une seule fois leur périmètre et l’autorisation explicite, puis inventorie automatiquement les réseaux approuvés. Les nouveaux candidats restent « à valider » ; aucune autorisation d’audit n’est déduite de la découverte.
 
 `python3 -m prevost.network arreter` arrête la veille ; `python3 -m prevost.network retirer --network IDENTIFIANT` retire une autorisation. `/reseaux`, `/arreter-reseau` et `/retirer-reseau IDENTIFIANT` sont aussi disponibles. L’état reste privé hors Git. Voir [RESEAUX.md](RESEAUX.md) pour les commandes d’approbation, les prérequis et les limites.
+
+## Scan Nmap demandé par l’utilisateur
+
+Saisir `scan complet` ou même `scam complet` ouvre un dialogue déterministe, sans transmettre cette demande à Ollama : choisir une IPv4 ou un nom DNS exact, vérifier la commande et confirmer avec `oui` que ce scan actif est autorisé sur cette cible. `/scan scanme.nmap.org` ouvre directement la même proposition. Aucune cible n’est déduite de l’historique ou de l’inventaire. Une réponse du modèle contenant ces mots ne déclenche rien.
+
+Le profil demandé est exactement `nmap -v -A CIBLE`. `-A` active versions, scripts par défaut, détection du système et traceroute selon les droits disponibles ; ce profil conserve la sélection habituelle de 1 000 ports TCP, sans couvrir tous les ports ni UDP. Voir les documentations officielles des [options Nmap](https://nmap.org/book/man-briefoptions.html) et de la [sélection des ports](https://nmap.org/book/man-port-specification.html). Seule une cible est acceptée ; URL, CIDR, plage et options supplémentaires sont refusés par `/scan`. Les commandes manuelles `/commande` conservent leur fonctionnement et leur confirmation habituels.
+
+Le délai est celui de `--timeout` (30 secondes par défaut, maximum 300) ; pour laisser davantage de temps, relancer PRÉVOST avec `python3 -m prevost --project . --timeout 300`. Les sorties sont affichées à la fin et conservées localement dans l’état privé du projet, jamais envoyées automatiquement au modèle. Un échec de résolution est signalé comme une absence de scan même si Nmap retourne 0. Aucun recours automatique à `sudo` et aucun changement de cible si la commande échoue.
