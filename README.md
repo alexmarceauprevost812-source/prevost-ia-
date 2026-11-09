@@ -10,6 +10,18 @@ Assistant de programmation **local**, en Python, qui s'appuie sur un modèle [Ol
 
 Prérequis : Python 3.10 ou plus, Linux (ou [Termux](TERMUX.md) sur Android), et Ollama avec au moins un modèle déjà installé. PRÉVOST ne télécharge aucun modèle.
 
+## À quoi ça sert
+
+PRÉVOST sert à se faire aider pour programmer **sans envoyer son code à un service en ligne** et **sans rien laisser écrire dans ses fichiers avant de l'avoir vu**.
+
+- **Écrire un petit programme à partir d'une description en français** (`/coder`) : un script, une fonction avec ses tests. Le plan s'affiche en clair, puis le code est vérifié (syntaxe, puis exécution réelle).
+- **Modifier un fichier existant** : les différences sont montrées avant votre « oui », l'ancienne version est gardée et `/annuler` la restaure.
+- **Travailler hors ligne et en privé** : le modèle tourne sur votre machine avec Ollama, sans compte ni clé.
+- **Comparer vos modèles** : le banc d'essai (`python3 -m prevost bench`) leur donne les mêmes missions et indique ce qui a réussi.
+- **Outils annexes, à la demande** : diagnostic du PC (Gardien), inventaire réseau consenti, scan Nmap, coffre chiffré (voir [Autres modules](#autres-modules)).
+
+À savoir : un modèle local de petite taille convient surtout aux petites tâches et se trompe parfois. Relisez le code : PRÉVOST prouve qu'il s'exécute comme annoncé, pas qu'il est juste (voir « Ce que le bilan ne prouve pas » plus bas).
+
 ## Démarrage rapide
 
 ```bash
