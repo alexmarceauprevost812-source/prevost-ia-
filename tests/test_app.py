@@ -133,6 +133,164 @@ class AppTests(unittest.TestCase):
         self.assertEqual([r['status'] for r in records if r.get('event') == 'code_validation'],
                          ['double_verification_reussie', 'verification_incomplete', 'verification_incomplete'])
 
+    def coder(self, replies, request='Écrire', confirm=lambda _: True, timeout=5):
+        prompts, queue = [], iter(replies)
+        class Model:
+            def chat(self, model, messages, structured=False):
+                prompts.append(messages[-1]['content'])
+                reply = next(queue)
+                yield reply if isinstance(reply, str) else json.dumps(reply)
+        ui = UI(); ui.confirm = confirm
+        with contextlib.redirect_stdout(io.StringIO()) as out:
+            try:
+                result = code_mission(Model(), 'simulé', self.project, request, ui, timeout)
+            except ValueError as error:
+                result = error
+        return result, prompts, out.getvalue()
+
+    def test_repair_loop_sends_real_error_and_reports_attempts(self):
+        bad = {'files': [{'path': 'calc.py', 'content': 'print(1 / 0)\n'}], 'commands': [],
+               'checks': [{'path': 'calc.py', 'expected_stdout': '2\n'}]}
+        good = {'files': [{'path': 'calc.py', 'content': 'print(1 + 1)\n'}], 'commands': [],
+                'checks': [{'path': 'calc.py', 'expected_stdout': '2\n'}]}
+        result, prompts, shown = self.coder([bad, good], 'Additionner')
+        self.assertEqual(result['status'], 'double_verification_reussie')
+        self.assertEqual(result['essais_correction'], 1)
+        self.assertIn('ZeroDivisionError', prompts[1])
+        self.assertIn('print(1 / 0)', prompts[1])
+        self.assertIn('Additionner', prompts[1])
+        self.assertIn('NON FIABLES', prompts[1])
+        self.assertIn('essais de correction : 1/2', shown)
+
+    def test_repair_loop_is_limited_to_two_attempts(self):
+        def plan(n):
+            return {'files': [{'path': 'x.py', 'content': f'print({n})\n'}], 'commands': [],
+                    'checks': [{'path': 'x.py', 'expected_stdout': 'jamais\n'}]}
+        result, prompts, _ = self.coder([plan(1), plan(2), plan(3), plan(4)])
+        self.assertEqual(result['essais_correction'], 2)
+        self.assertEqual(len(prompts), 3)
+        self.assertEqual(result['status'], 'verification_incomplete')
+
+    def test_failed_command_triggers_repair_and_refusal_stops_everything(self):
+        bad = {'files': [{'path': 'r.py', 'content': 'raise SystemExit(3)\n'}], 'commands': [[sys.executable, 'r.py']], 'checks': []}
+        good = {'files': [{'path': 'r.py', 'content': 'print("ok")\n'}], 'commands': [[sys.executable, 'r.py']], 'checks': []}
+        result, prompts, _ = self.coder([bad, good])
+        self.assertEqual(result['essais_correction'], 1)
+        self.assertIn('"code": 3', prompts[1])
+        answers = iter([True, False])
+        refused, prompts, shown = self.coder([bad, good], confirm=lambda _: next(answers, False))
+        self.assertEqual(refused['arret'], 'commande refusée ou annulée')
+        self.assertEqual(refused['essais_correction'], 0)
+        self.assertEqual(len(prompts), 1)
+
+    def test_timeout_stops_without_repair(self):
+        slow = {'files': [{'path': 's.py', 'content': 'import time\ntime.sleep(5)\n'}], 'commands': [[sys.executable, 's.py']], 'checks': []}
+        result, prompts, _ = self.coder([slow, slow], timeout=1)
+        self.assertEqual(result['arret'], 'délai dépassé')
+        self.assertEqual(len(prompts), 1)
+
+    def test_broken_python_is_never_written_and_model_asked_once(self):
+        broken = {'files': [{'path': 'b.py', 'content': 'def f(:\n'}], 'commands': [], 'checks': []}
+        result, prompts, shown = self.coder([broken, broken])
+        self.assertIsInstance(result, ValueError)
+        self.assertEqual(len(prompts), 2)
+        self.assertFalse((self.root/'b.py').exists())
+        self.assertIn('ATTENTION', shown)
+        self.assertNotIn('Plan proposé', shown)
+
+    def test_truncated_json_asks_again_then_succeeds(self):
+        good = {'files': [{'path': 'ok.py', 'content': 'print(1)\n'}], 'commands': [], 'checks': []}
+        result, prompts, shown = self.coder(['{"files":[{"path":"ok.py","con', good])
+        self.assertEqual(len(prompts), 2)
+        self.assertIn('tronqué', prompts[1])
+        self.assertTrue((self.root/'ok.py').exists())
+
+    def test_missing_command_when_user_says_lance_warns(self):
+        plan = {'files': [{'path': 'w.py', 'content': 'print(1)\n'}], 'commands': [], 'checks': []}
+        result, prompts, shown = self.coder([plan, plan], 'Écris w.py et lance-le')
+        self.assertEqual(len(prompts), 2)
+        self.assertIn('aucune commande', shown)
+        result, prompts, _ = self.coder([plan], 'Écris w2.py')
+        self.assertEqual(len(prompts), 1)
+
+    def test_plan_is_shown_as_text_not_raw_json(self):
+        plan = {'files': [{'path': 'p.py', 'content': 'print(1)\nprint(2)\n'}], 'commands': [['echo', 'x y']],
+                'checks': [{'path': 'p.py', 'expected_stdout': '1\n2\n'}]}
+        _, _, shown = self.coder([plan])
+        self.assertIn('Fichiers (1) :', shown)
+        self.assertIn('p.py (2 lignes)', shown)
+        self.assertIn("echo 'x y'", shown)
+        self.assertNotIn('"files"', shown.split('Plan proposé')[0])
+
+    def test_memory_records_only_verified_facts_and_masks_secrets(self):
+        from prevost.memory import Memory
+        plan = {'files': [{'path': 'm.py', 'content': 'print(7)\n'}], 'commands': [[sys.executable, 'm.py']],
+                'checks': [{'path': 'm.py', 'expected_stdout': '7\n'}]}
+        self.coder([plan], 'Afficher 7 avec password=hunter2xyz')
+        memory = Memory(self.project)
+        kinds = [row['kind'] for row in memory.entries()]
+        self.assertEqual(kinds, ['mission', 'fichier', 'commande', 'bilan'])
+        text = memory.render()
+        self.assertNotIn('hunter2xyz', text)
+        self.assertNotIn('7\n', [row.get('sortie') for row in memory.entries()])
+        self.assertTrue(all('sortie' not in row and 'output' not in row for row in memory.entries()))
+        self.assertEqual(memory.path.stat().st_mode & 0o777, 0o600)
+        self.assertEqual(self.project.state.stat().st_mode & 0o777, 0o700)
+        memory.note('Utiliser Python 3.11')
+        self.assertIn('Utiliser Python 3.11', memory.context())
+        memory.clear()
+        self.assertEqual(memory.render(), 'Mémoire vide.')
+
+    def test_memory_context_is_bounded_and_labeled_untrusted(self):
+        from prevost.memory import Memory
+        memory = Memory(self.project)
+        for i in range(200):
+            memory.note(f'note numéro {i} ' + 'x' * 100)
+        context = memory.context()
+        self.assertLessEqual(len(context.encode()), 2048 + 200)
+        self.assertIn('NON FIABLES', context)
+        self.assertIn('note numéro 199', context)
+        self.assertNotIn('note numéro 0 ', context)
+        plan = {'files': [], 'commands': [], 'checks': []}
+        _, prompts, _ = self.coder([plan])
+        self.assertIn('NON FIABLES', prompts[0])
+
+    def test_memory_commands_in_repl(self):
+        from prevost.app import main
+        inputs = iter(['/memoire note Toujours utiliser unittest', '/memoire', '/memoire effacer', 'non', '/memoire effacer', 'oui', '/memoire', '/quitter'])
+        with contextlib.redirect_stdout(io.StringIO()) as out, patch('builtins.input', lambda *_: next(inputs)), \
+                patch('prevost.app.Ollama.models', return_value=['m']):
+            main(['--project', str(self.root), '--state-dir', str(self.state), '--model', 'm'])
+        text = out.getvalue()
+        self.assertIn('Note enregistrée.', text)
+        self.assertIn('Toujours utiliser unittest', text)
+        self.assertEqual(text.count('Mémoire effacée.'), 1)
+        self.assertIn('Mémoire vide.', text)
+
+    def test_undo_restores_after_diff_and_confirmation(self):
+        from prevost.app import undo
+        ui = UI(); ui.show = lambda _: None; ui.confirm = lambda _: True
+        self.project.write('f.txt', 'v1\n', ui.confirm)
+        self.project.write('f.txt', 'v2\n', ui.confirm)
+        self.project.write('f.txt', 'v3\n', ui.confirm)
+        self.assertEqual(len(self.project.backups('f.txt')), 2)
+        shown = []
+        ui.confirm = lambda text: (shown.append(text), True)[1]
+        ui.read = lambda *_: '2'
+        self.assertTrue(undo(self.project, ui, 'f.txt'))
+        self.assertEqual(self.project.read('f.txt'), 'v1\n')
+        self.assertIn('-v3', shown[-1])
+        self.assertIn('+v1', shown[-1])
+        ui.confirm = lambda _: False
+        ui.read = lambda *_: '1'
+        self.assertFalse(undo(self.project, ui, 'f.txt'))
+        self.assertEqual(self.project.read('f.txt'), 'v1\n')
+        ui.read = lambda *_: ''
+        self.assertFalse(undo(self.project, ui, 'f.txt'))
+        self.assertFalse(undo(self.project, ui, 'inconnu.txt'))
+        for item in (self.project.state/'backups').iterdir():
+            self.assertEqual(item.stat().st_mode & 0o777, 0o600)
+
     def test_coder_invalid_check_stops_before_writing(self):
         class Model:
             def chat(self, *args, **kwargs):
