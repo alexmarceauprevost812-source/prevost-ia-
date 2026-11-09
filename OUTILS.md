@@ -48,7 +48,7 @@ Tous les paramètres sont obligatoires et tout paramètre supplémentaire est re
 | --- | --- | --- | --- | --- |
 | `project.read` | `path` relatif | Lecture du projet | 3 s, coopératif | Lecture UTF-8 bornée, SHA-256 |
 | `project.write` | `path`, `content` | Écriture confirmée, sauvegarde | 5 s, coopératif | Relecture exactement identique |
-| `python.run` | `path` en `.py`, `expected_stdout` | Exécution sensible sur l’hôte, effets possibles sur fichiers/système/réseau | 15 s | Code 0 et stdout exactement attendu |
+| `python.run` | `path` en `.py`, `expected_stdout` | Exécution sensible sur l’hôte, effets possibles sur fichiers/système/réseau | 15 s | Code 0 et stdout exactement attendu ; pour un fichier qui appelle `unittest.main()`, verdict unittest sur stderr (« Ran N tests », N ≥ 1, ligne finale `OK`) à la place du stdout |
 | `local.disk` | Aucun | Lecture statvfs de `/` | 3 s, coopératif | Cohérence des valeurs de capacité |
 | `local.ports` | Aucun | Lecture `ss -H -lntu` | 8 s | Retour 0, sortie complète, aucun refus d’accès |
 | `local.services` | Aucun | Lecture des unités systemd utilisateur échouées | 8 s | Retour 0, sortie complète, aucun refus d’accès |
@@ -67,7 +67,7 @@ Les sondes Kali vérifient d’abord Podman et la présence de `kali-lexos` parm
 
 ## Vérification et preuves
 
-`python.run` fournit deux critères distincts dans `code_checks` : `syntax` (compilation sans exécution) et `execution` (retour zéro, stdout attendu exact et source inchangée). Un contrôle absent, refusé, expiré ou échoué ne compte pas comme réussi. L’empreinte `source_sha256` est comparée à la source présente au bilan. Les dépendances et les effets de bord ne sont pas couverts par cette empreinte.
+`python.run` fournit deux critères distincts dans `code_checks` : `syntax` (compilation sans exécution) et `execution` (retour zéro, stdout attendu exact et source inchangée ; pour un fichier qui appelle `unittest.main()`, le verdict unittest lu sur stderr remplace la comparaison de stdout, car unittest n’écrit rien sur stdout. Ce verdict est écrit par le programme lui-même : il prouve que ses tests ont annoncé `OK`, pas qu’ils sont pertinents). Un contrôle absent, refusé, expiré ou échoué ne compte pas comme réussi. L’empreinte `source_sha256` est comparée à la source présente au bilan. Les dépendances et les effets de bord ne sont pas couverts par cette empreinte.
 
 Après une écriture, `/agent` exige les deux contrôles pour chaque fichier écrit avant d’accepter `finish` comme `plan_termine`. Il ne compte que les contrôles postérieurs à la dernière écriture de la mission, y compris lorsqu’un autre fichier est modifié. Une fin sans preuves devient `verification_incomplete` et la CLI retourne un échec. Les fichiers non Python restent sans double validation automatique. Les missions de lecture seule conservent leur fonctionnement. Ce bilan est enregistré dans le rapport et le journal ; ce n’est pas une certification de correction fonctionnelle générale.
 
