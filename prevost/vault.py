@@ -1,4 +1,4 @@
-"""Coffre local de cookies fournis explicitement ; aucune extraction ni transmission."""
+"""Coffre local de secrets fournis explicitement ; aucune extraction ni transmission."""
 import argparse
 from contextlib import contextmanager
 import fcntl
@@ -100,7 +100,9 @@ class Vault:
             data = json.loads(clear)
         except (InvalidTag, ValueError, UnicodeError):
             raise ValueError('Coffre verrouillé : mot de passe incorrect ou fichier altéré.') from None
-        if not isinstance(data, dict) or set(data) != {'cookies'} or not isinstance(data['cookies'], dict):
+        if (not isinstance(data, dict) or set(data) not in ({'cookies'}, {'cookies', 'secrets'})
+                or not isinstance(data['cookies'], dict)
+                or not isinstance(data.get('secrets', {}), dict)):
             raise ValueError('Contenu de coffre invalide.')
         return data, key, salt
 
@@ -145,17 +147,47 @@ class Vault:
         with self.lock():
             data, _, _ = self.load(password)
             # La valeur ne sort pas du coffre et n’est pas rendue à l’interface.
-            return [{'id': identifier, **{k: item[k] for k in
+            cookies = [{'id': identifier, **{k: item[k] for k in
                     ('domain', 'name', 'allowed_origin', 'status', 'created_at')}}
                     for identifier, item in data['cookies'].items()]
+            return cookies + [{'id': identifier, **{k: item[k] for k in
+                    ('kind', 'label', 'status', 'created_at')}}
+                    for identifier, item in data.get('secrets', {}).items()]
+
+    def add_secret(self, password, kind, label, value):
+        if kind not in ('mot-de-passe', 'jeton-api', 'autre'):
+            raise ValueError('Type de secret inconnu.')
+        if (not isinstance(label, str) or not label.strip() or len(label) > 256
+                or any(ord(c) < 32 or ord(c) == 127 for c in label)):
+            raise ValueError('Libellé requis, maximum 256 caractères sans contrôle.')
+        if not isinstance(value, str) or not value or len(value.encode('utf-8')) > 65536:
+            raise ValueError('Secret requis, maximum 65536 octets.')
+        with self.lock():
+            data, key, salt = self.load(password)
+            identifier = secrets.token_hex(12)
+            data.setdefault('secrets', {})[identifier] = {
+                'kind': kind, 'label': label, 'value': value, 'created_at': now(),
+                'status': 'stocke_sans_autorisation_utilisation'}
+            self.save(data, key, salt)
+        return identifier
 
     def remove(self, password, identifier):
         with self.lock():
             data, key, salt = self.load(password)
-            if identifier not in data['cookies']:
+            collection = next((items for items in (data['cookies'], data.get('secrets', {}))
+                               if identifier in items), None)
+            if collection is None:
                 raise ValueError('Identifiant absent du coffre.')
-            del data['cookies'][identifier]
+            del collection[identifier]
             self.save(data, key, salt)
+
+    def reveal(self, password, identifier):
+        with self.lock():
+            data, _, _ = self.load(password)
+            for items in (data['cookies'], data.get('secrets', {})):
+                if identifier in items:
+                    return items[identifier]['value']
+        raise ValueError('Identifiant absent du coffre.')
 
 
 def hidden(prompt):
@@ -170,15 +202,15 @@ def hidden(prompt):
 
 
 def main(argv=None):
-    parser = argparse.ArgumentParser(description='PRÉVOST — coffre local chiffré de vos propres cookies')
-    parser.add_argument('mode', nargs='?', choices=['creer', 'ajouter', 'liste', 'retirer'])
+    parser = argparse.ArgumentParser(description='PRÉVOST — coffre local chiffré de vos propres secrets')
+    parser.add_argument('mode', nargs='?', choices=['creer', 'ajouter', 'secret', 'liste', 'voir', 'retirer'])
     parser.add_argument('--state-dir', default=str(DEFAULT_STATE))
     args = parser.parse_args(argv)
     ui = UI()
     try:
         crypto()  # Pas de coffre créé si la dépendance est absente.
-        mode = args.mode or ui.read('Coffre local : creer / ajouter / liste / retirer > ').strip()
-        if mode not in ('creer', 'ajouter', 'liste', 'retirer'):
+        mode = args.mode or ui.read('Coffre local : creer / ajouter (cookie) / secret / liste / voir / retirer > ').strip()
+        if mode not in ('creer', 'ajouter', 'secret', 'liste', 'voir', 'retirer'):
             raise ValueError('Commande de coffre inconnue.')
         vault = Vault(args.state_dir)
         if mode == 'creer':
@@ -200,13 +232,31 @@ def main(argv=None):
             value = hidden('Valeur du cookie (masquée ; ne pas la coller dans le chat) > ')
             identifier = vault.add(password, domain, name, value)
             ui.show('Cookie enregistré localement, sans autorisation d’utilisation. Identifiant : ' + identifier)
+        elif mode == 'secret':
+            kind = ui.read('Type : mot-de-passe / jeton-api / autre > ').strip()
+            label = ui.read('Libellé (sans valeur secrète) > ').strip()
+            if not ui.confirm('Confirmer que ce secret vous appartient et autoriser son stockage local chiffré ?'):
+                return 0
+            password = hidden('Phrase de passe du coffre > ')
+            vault.metadata(password)
+            value = hidden('Secret à enregistrer (masqué) > ')
+            identifier = vault.add_secret(password, kind, label, value)
+            ui.show('Secret enregistré localement, sans autorisation d’utilisation. Identifiant : ' + identifier)
         elif mode == 'liste':
             ui.raw(json.dumps(vault.metadata(hidden('Phrase de passe du coffre > ')), ensure_ascii=False, indent=2))
+        elif mode == 'voir':
+            if not sys.stdout.isatty():
+                raise ValueError('Affichage secret réservé à un terminal interactif, sans redirection.')
+            identifier = ui.read('Identifiant de l’entrée à afficher > ').strip()
+            if not ui.confirm('Afficher la valeur secrète dans ce terminal ? Elle restera visible dans son défilement.'):
+                return 0
+            value = vault.reveal(hidden('Phrase de passe du coffre > '), identifier)
+            ui.raw(value)
         else:
-            identifier = ui.read('Identifiant du cookie à retirer > ').strip()
-            if ui.confirm('Retirer du coffre le cookie ' + identifier + ' ?'):
+            identifier = ui.read('Identifiant de l’entrée à retirer > ').strip()
+            if ui.confirm('Retirer du coffre l’entrée ' + identifier + ' ?'):
                 vault.remove(hidden('Phrase de passe du coffre > '), identifier)
-                ui.show('Cookie retiré du coffre. Pour invalider la session, utiliser les paramètres du compte concerné.')
+                ui.show('Entrée retirée du coffre. Pour révoquer le secret ou la session, utiliser les paramètres du compte concerné.')
         return 0
     except (EOFError, KeyboardInterrupt):
         ui.show('Coffre refermé ; opération interrompue.')

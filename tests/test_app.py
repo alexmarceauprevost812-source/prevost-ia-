@@ -199,13 +199,13 @@ class AppTests(unittest.TestCase):
 
     def test_network_commands_dispatch_without_model_or_implicit_audit(self):
         from prevost.app import main
-        commands = ['/reseaux', '/arreter-reseau', '/retirer-reseau identifiant', '/veille-reseau', '/quitter']
+        commands = ['/reseaux', '/appareils', '/arreter-reseau', '/retirer-reseau identifiant', '/veille-reseau', '/quitter']
         with patch('prevost.app.Project', return_value=self.project), patch.object(Ollama, 'models', return_value=['simule']), \
              patch('builtins.input', side_effect=commands), patch('prevost.network.main', return_value=0) as network_main, \
              contextlib.redirect_stdout(io.StringIO()):
             self.assertEqual(main(['--project', str(self.root), '--model', 'simule', '--ollama', 'http://127.0.0.1:11434']), 0)
         self.assertEqual([call.args[0] for call in network_main.call_args_list],
-                         [['liste'], ['arreter'], ['retirer', '--network', 'identifiant'], ['veille']])
+                         [['liste'], ['appareils'], ['arreter'], ['retirer', '--network', 'identifiant'], ['veille']])
 
     def test_vault_stays_out_of_model_and_conversation_history(self):
         from prevost.app import main

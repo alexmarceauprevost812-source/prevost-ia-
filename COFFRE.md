@@ -1,6 +1,6 @@
 # Coffre local privé
 
-Le coffre reste sur votre appareil. Il ne fait aucun appel réseau, synchronisation, téléchargement ou envoi au modèle. Le mot de passe n’est jamais écrit sur disque. Les valeurs de cookies ne sont jamais affichées ni ajoutées aux historiques de conversation ou d’outils. Les métadonnées (domaine, nom, date) sont aussi chiffrées au repos ; leur consultation nécessite le mot de passe.
+Le coffre reste sur votre appareil. Il ne fait aucun appel réseau, synchronisation, téléchargement ou envoi au modèle. La phrase de passe du coffre n’est jamais écrite sur disque. Les cookies, mots de passe de comptes, jetons API et autres secrets fournis explicitement sont chiffrés avec leurs métadonnées. Leur consultation nécessite la phrase de passe. Les valeurs ne sont jamais ajoutées aux historiques de conversation ou d’outils ; seul le mode `voir` permet leur affichage explicite dans le terminal.
 
 Cette première version accepte une saisie explicite de cookies appartenant à vos propres comptes. Elle ne recherche ni n’extrait les bases de cookies d’un navigateur et n’intercepte aucune session. Le branchement à Themus ou à un outil de connexion reste à définir avec le lien/dossier de l’application et le compte concerné. Aucun cookie n’est fourni à un outil par cette version. Chaque enregistrement porte le statut `stocke_sans_autorisation_utilisation` ; consentir au stockage n’autorise pas son utilisation future.
 
@@ -11,13 +11,21 @@ Dans le dépôt :
 ```bash
 python3 -m prevost.vault creer
 python3 -m prevost.vault ajouter
+python3 -m prevost.vault secret
 python3 -m prevost.vault liste
+python3 -m prevost.vault voir
 python3 -m prevost.vault retirer
 ```
 
 La commande `/coffre` dans PRÉVOST ouvre le même menu, sans passer par Ollama. Ne placer ni cookie ni mot de passe après `/coffre` ou dans une demande au modèle. Le domaine et le nom se saisissent normalement ; les valeurs de cookie et phrases de passe se saisissent uniquement dans les invites masquées. Il n’existe aucun argument de ligne de commande pour transmettre un secret. Une saisie sans terminal ou un échec de masquage est refusé.
 
 `creer` demande une phrase de passe d’au moins 16 caractères, puis sa répétition. Une phrase longue et unique est préférable. Aucun mécanisme de récupération n’existe : conserver cette phrase de passe dans un endroit sûr.
+
+`secret` ajoute un mot de passe, un jeton API ou un autre secret personnel (maximum 64 Ko) après confirmation, avec saisie masquée. Utiliser un libellé sans secret. Les coffres existants contenant uniquement des cookies restent lisibles ; les nouvelles entrées sont enregistrées dans le même fichier chiffré.
+
+`liste` affiche uniquement les métadonnées et identifiants après déverrouillage. `voir` demande l’identifiant, une confirmation d’affichage et la phrase de passe, puis révèle la valeur. Cette commande refuse les redirections de sortie. La valeur reste visible dans le défilement du terminal et dans un éventuel enregistrement externe de celui-ci. Aucun presse-papiers ni journal PRÉVOST n’est utilisé. Les séquences de contrôle sont neutralisées à l’affichage.
+
+Cette version ne collecte pas automatiquement les secrets et n’est pas encore reliée à `mon-secret-cookie`. Seuls les secrets que vous fournissez dans les invites du coffre y sont enregistrés. Un secret collé dans le chat peut entrer dans son historique : utiliser exclusivement `/coffre` pour les saisir.
 
 `ajouter` exige le domaine exact (sans URL ni joker), le nom du cookie, la confirmation qu’il appartient à votre compte et l’autorisation de stockage local, puis le mot de passe et la valeur masquée. Les valeurs sont limitées à 8192 octets et les contrôles/séparateurs sont refusés. Les doublons sont conservés séparément. La suppression demande une confirmation et le mot de passe. Supprimer un cookie du coffre ne révoque pas la session sur le site : cette révocation se fait dans les paramètres du compte.
 

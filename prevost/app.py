@@ -362,6 +362,7 @@ def scan_mission(project, target, ui, timeout):
 HELP = '''/aide ; /quitter ; /modeles ; /historique
 /outils — registre vérifié LexOS/Kali/REA ; /agent demande — mission par outils validés
 /reseaux — inventaire privé et autorisations ; /veille-reseau — veille consentie au premier plan
+/appareils — ID, IP et MAC enregistrés, sans nouvelle collecte
 /arreter-reseau — arrêter la veille ; /retirer-reseau identifiant — retirer une autorisation
 /coffre — coffre local chiffré (ne jamais saisir de cookie ni mot de passe dans le chat)
 /lire chemin — lire un fichier et l’ajouter au contexte du prochain échange
@@ -416,9 +417,9 @@ def main(argv=None):
                 elif verb == '/outils':
                     from .tools import Registry
                     ui.tool(json.dumps(Registry(project, ui.confirm).catalogue(), ensure_ascii=False, indent=2))
-                elif verb in ('/reseaux', '/veille-reseau', '/arreter-reseau', '/retirer-reseau'):
+                elif verb in ('/reseaux', '/appareils', '/veille-reseau', '/arreter-reseau', '/retirer-reseau'):
                     from .network import main as network_main
-                    mode = {'/reseaux': 'liste', '/veille-reseau': 'veille',
+                    mode = {'/reseaux': 'liste', '/appareils': 'appareils', '/veille-reseau': 'veille',
                             '/arreter-reseau': 'arreter', '/retirer-reseau': 'retirer'}[verb]
                     network_main([mode, '--network', rest] if verb == '/retirer-reseau' else [mode])
                 elif verb == '/coffre':

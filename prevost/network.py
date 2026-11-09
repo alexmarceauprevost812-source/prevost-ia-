@@ -197,6 +197,17 @@ class Store:
         return new
 
 
+def device_inventory(data):
+    """Vue des observations enregistrées, sans collecte réseau supplémentaire."""
+    rows = []
+    for network_id, network in sorted(data['networks'].items()):
+        for device in network['devices'].values():
+            rows.append({**device, 'network_id': network_id, 'network_name': network['name'],
+                         'observed_last_scan': device['id'] in network['previous']})
+    return sorted(rows, key=lambda row: (row['network_id'],
+                  int(ipaddress.IPv4Address(row['ip'])), row['mac'] or ''))
+
+
 def parse_hosts(xml, scope):
     root = ET.fromstring(xml)
     finished = root.find('runstats/finished')
@@ -354,7 +365,8 @@ def cycle(store, ui, connected=None, scan=None, interactive=None):
             new = store.record(connection, scope, observations)
             ui.show(f"Inventaire {connection['name']} : {len(observations)} observation(s), {len(new)} nouveau(x) candidat(s).")
             for device in new:
-                ui.show(f"NOUVEL APPAREIL À VALIDER : {device['ip']} — {device['mac'] or 'MAC inconnue'} ; {device['identity_confidence']}")
+                ui.show(f"NOUVEL APPAREIL À VALIDER : ID {device['id']} ; réseau {connection['id']} ; "
+                        f"{device['ip']} — {device['mac'] or 'MAC inconnue'} ; {device['identity_confidence']}")
         except (OSError, ValueError, ET.ParseError) as error:
             healthy = False
             ui.show('Découverte indisponible ; inventaire précédent conservé : ' + str(error))
@@ -393,7 +405,7 @@ def events(store, interval):
 
 def main(argv=None):
     parser = argparse.ArgumentParser(description='PRÉVOST — inventaire des réseaux explicitement approuvés')
-    parser.add_argument('mode', choices=['connexions', 'liste', 'approuver', 'retirer', 'une-fois', 'veille', 'arreter'])
+    parser.add_argument('mode', choices=['connexions', 'liste', 'appareils', 'approuver', 'retirer', 'une-fois', 'veille', 'arreter'])
     parser.add_argument('--network', help='Identifiant exact affiché par connexions ou liste')
     parser.add_argument('--scope', help='Un CIDR IPv4 directement connecté, maximum 4096 adresses')
     parser.add_argument('--interval', type=float, default=60)
@@ -410,6 +422,8 @@ def main(argv=None):
         ui = NetworkUI(store)
         if args.mode == 'liste':
             ui.raw(json.dumps(store.read(), ensure_ascii=False, indent=2))
+        elif args.mode == 'appareils':
+            ui.raw(json.dumps(device_inventory(store.read()), ensure_ascii=False, indent=2))
         elif args.mode == 'arreter':
             store.stop()
             ui.show('Arrêt demandé ; la collecte en cours sera annulée et la veille terminée.')

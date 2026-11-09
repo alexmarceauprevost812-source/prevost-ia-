@@ -1,5 +1,7 @@
 # Inventaire réseau consenti
 
+`/appareils` dans la conversation ou `python3 -m prevost.network appareils` affiche les appareils déjà enregistrés : ID, ID du réseau, IP, MAC éventuelle, sources, dates et état `observed_last_scan`. Cette lecture ne lance aucune sonde. Les lignes sont triées par réseau puis par adresse IP numérique. Un état faux signifie seulement « non observé au dernier relevé réussi ». Les alertes de nouveaux appareils affichent également leur ID et celui du réseau. Pour désigner un candidat sans ambiguïté, conserver les deux identifiants ; un ID ne constitue pas une autorisation d’audit.
+
 Depuis le dépôt, démarrer une veille explicite au premier plan :
 
 ```bash

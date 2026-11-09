@@ -6,6 +6,8 @@ Assistant Python de programmation locale avec Ollama. Le cœur fonctionne sans d
 
 ## Lancement
 
+Pour Android, voir la [version Termux](TERMUX.md) : installateur, lanceur `prevost`, coffre et limites réseau.
+
 Depuis ce dépôt :
 
 ```bash
@@ -39,7 +41,7 @@ Sans Ollama, les commandes manuelles restent disponibles. Dans la conversation, 
 
 L’option `--state-dir DOSSIER` permet de choisir le dossier des historiques et sauvegardes de la CLI, par exemple dans un environnement où le dossier personnel est inaccessible. Un sous-dossier propre à chaque projet y est créé. Choisir un emplacement privé hors Git ; réutiliser le même dossier pour retrouver l’historique. Cette option ne change pas les emplacements propres au coffre, au gardien ou à la veille réseau.
 
-Le [coffre local](COFFRE.md), accessible par `/coffre`, conserve uniquement les cookies de vos propres comptes que vous fournissez explicitement, chiffrés par phrase de passe sur votre appareil. Les valeurs ne sont ni affichées, ni ajoutées au modèle ou à l’historique. Le stockage n’autorise pas l’utilisation par un outil ; aucun branchement à Themus n’est encore effectué.
+Le [coffre local](COFFRE.md), accessible par `/coffre`, conserve vos cookies, mots de passe et jetons fournis explicitement, chiffrés par phrase de passe sur votre appareil. Le mode `secret` ajoute un secret et `voir` révèle sa valeur dans le terminal après confirmation et déverrouillage. Les valeurs ne sont pas ajoutées au modèle ou à l’historique. Le stockage n’autorise pas l’utilisation par un outil ; aucun branchement à `mon-secret-cookie` n’est encore effectué.
 
 Les échanges, résultats de commandes et sauvegardes des fichiers modifiés restent dans `~/.local/share/prevost-ia-local/<empreinte-du-chemin-du-projet>/`, hors du dépôt. À la réouverture du même dossier, les vingt derniers messages sont repris, avec une lecture bornée à 200 Ko d’historique. Le fichier de journal est privé (mode 600), son dossier en mode 700. Les sauvegardes permettent une restauration manuelle ; aucune suppression automatique n’est effectuée. Déplacer le projet change son identifiant de mémoire.
 
