@@ -6,7 +6,7 @@ Python 3.9+ ; outils déjà présents utilisés sans installation, sudo ou modif
 Depuis le terminal Ubuntu normal :
 
 ```bash
-cd /home/ti-lex/Samsung-Android16
+cd samsung-recovery   # depuis la racine du dépôt
 python3 outils/v17/diagnostic_environnement.py --label ubuntu
 ```
 

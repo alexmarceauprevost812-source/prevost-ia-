@@ -3,7 +3,7 @@
 Python 3.9+ sous Linux, bibliothèque standard uniquement. Aucune installation ni sudo requis.
 
 ```bash
-cd /home/ti-lex/Samsung-Android16
+cd samsung-recovery   # depuis la racine du dépôt
 ./prevost-samsung                 # menu TUI LexOS
 ./prevost-samsung diagnostic
 ./prevost-samsung detect
