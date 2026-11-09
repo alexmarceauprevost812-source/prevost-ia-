@@ -1,5 +1,7 @@
 # PRÉVOST IA Local — v2
 
+Licence : [MIT](LICENSE) © 2026 alexmarceauprevost812-source.
+
 La branche `v2` réunit les historiques de `main` et `feature/prevost-local-v1`, dont les fichiers étaient identiques au moment de la réunion. La branche `supabase` est déjà incluse dans `main` ; elle ne contient aucune intégration Supabase supplémentaire. Cette base v2 conserve les fonctions existantes et ajoute le choix du dossier d’historique avec `--state-dir`.
 
 Assistant Python de programmation locale avec Ollama. Le cœur fonctionne sans dépendance Python externe ; le coffre optionnel utilise `cryptography`. Python 3.10+ et Linux sont requis pour l’arrêt des groupes de processus.
