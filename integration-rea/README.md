@@ -11,10 +11,10 @@ planifier les changements complexes, modifier de façon ciblée, exécuter les t
 et distinguer les résultats réels des suppositions. Ce raccordement n'entraîne pas les
 poids du modèle et ne garantit pas un niveau de performance « professionnel ».
 
-## Deuxième bouton : prevost-ia (PRÉVOST Python)
+## Deuxième bouton : prevost-rea (PRÉVOST Python)
 
 Avec les modèles locaux essayés, Codex n'a pas fait le travail : `prevost:latest` écrit un faux appel
-d'outil en texte et `qwen3:8b` répond sans créer de fichier. Le bouton **prevost-ia** lance donc
+d'outil en texte et `qwen3:8b` répond sans créer de fichier. Le bouton **prevost-rea** lance donc
 PRÉVOST Python (`python3 -m prevost`) sur le projet choisi : plans vérifiés avant écriture,
 corrections après un échec, mémoire du projet, chaque écriture et chaque commande confirmées par
 un « oui » exact. Sans `--model`, PRÉVOST liste les modèles installés et demande lequel utiliser ;
@@ -22,9 +22,10 @@ un « oui » exact. Sans `--model`, PRÉVOST liste les modèles installés et de
 pour lire l'erreur.
 
 L'installateur ajoute ce bouton **à côté** du bouton rea-prevost (Codex), sans le retirer, et met à
-niveau un `rea-gui` déjà installé. Il écrit `~/.local/bin/prevost-ia`, lié au dossier de ce dépôt :
+niveau un `rea-gui` déjà installé. Il écrit `~/.local/bin/prevost-rea`, lié au dossier de ce dépôt :
 si le dépôt est déplacé ou si une autre branche est activée, relancer `installer.py --apply`.
-Commande : `prevost-ia --project /chemin/du/projet`.
+Commande : `prevost-rea --project /chemin/du/projet`.
+Un `rea-gui` qui avait reçu le bouton sous son ancien nom `prevost-ia` est migré ; un ancien fichier `~/.local/bin/prevost-ia` éventuel n'est pas supprimé et peut être effacé à la main.
 
 ## Thème demandé
 
@@ -94,7 +95,7 @@ l'usage des outils et le budget de contexte restent à évaluer dans une session
 python3 -m unittest discover -s integration-rea -p 'test_*.py' -v
 ```
 
-**25 tests réussis** (9 pour le bouton prevost-ia : installation unique et idempotente, mise à niveau d'un `rea-gui` déjà modifié pour Codex, refus d'un fichier inconnu ou d'un lien symbolique, projet avec espaces, annulation, modèle par défaut, exécution réelle depuis un autre dossier, terminal gardé ouvert en cas d'erreur) : installation/sauvegarde/idempotence, migration du précédent
+**26 tests réussis** (10 pour le bouton prevost-rea : installation unique et idempotente, mise à niveau d'un `rea-gui` déjà modifié pour Codex, migration de l'ancien nom `prevost-ia`, refus d'un fichier inconnu ou d'un lien symbolique, projet avec espaces, annulation, modèle par défaut, exécution réelle depuis un autre dossier, terminal gardé ouvert en cas d'erreur) : installation/sauvegarde/idempotence, migration du précédent
 raccourci de conversation, choix du projet avec espaces, terminal de repli, thème noir/blanc
 et code coloré, paramètres Codex, refus de serveurs distants, outils non annoncés,
 diagnostic sans exécution et séquences couleur.

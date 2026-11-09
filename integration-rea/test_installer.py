@@ -17,7 +17,7 @@ spec=importlib.util.spec_from_loader(loader.name,loader)
 launcher=importlib.util.module_from_spec(spec)
 loader.exec_module(launcher)
 
-python_loader=importlib.machinery.SourceFileLoader('prevost_ia_script',str(Path(installer.__file__).with_name('prevost-ia')))
+python_loader=importlib.machinery.SourceFileLoader('prevost_rea_script',str(Path(installer.__file__).with_name('prevost-rea')))
 python_spec=importlib.util.spec_from_loader(python_loader.name,python_loader)
 python_script=importlib.util.module_from_spec(python_spec)
 python_loader.exec_module(python_script)
@@ -169,7 +169,7 @@ class ShortcutTests(unittest.TestCase):
 
 
 class PythonButtonTests(unittest.TestCase):
-    """Bouton prevost-ia : PRÉVOST Python lancé depuis REA, en plus du bouton Codex."""
+    """Bouton prevost-rea : PRÉVOST Python lancé depuis REA, en plus du bouton Codex."""
 
     def install_in(self, root, content):
         (root/'rea-gui').write_text(content)
@@ -184,8 +184,8 @@ class PythonButtonTests(unittest.TestCase):
             self.assertEqual(gui.count(installer.NEW),1)
             self.assertEqual(gui.count(installer.PYTHON_BLOCK),1)
             self.assertIn('button("rea-prevost", launch_rea_prevost)',gui)
-            self.assertIn('button("prevost-ia", launch_prevost_ia)',gui)
-            script=root/'prevost-ia'
+            self.assertIn('button("prevost-rea", launch_prevost_rea)',gui)
+            script=root/'prevost-rea'
             self.assertTrue(script.stat().st_mode & 0o111)
             repository=str(Path(installer.__file__).resolve().parents[1])
             self.assertIn('DEPOT = '+repr(repository),script.read_text())
@@ -203,17 +203,27 @@ class PythonButtonTests(unittest.TestCase):
             self.assertEqual(gui.count(installer.PYTHON_BLOCK),1)
             self.assertEqual((backup/'rea-gui').read_text(),installer.NEW+'\n')
 
+    def test_gui_with_previous_prevost_ia_name_is_migrated_to_prevost_rea(self):
+        self.assertIn('prevost-ia',installer.PYTHON_BLOCK_V1)
+        self.assertNotIn('prevost-rea',installer.PYTHON_BLOCK_V1)
+        with tempfile.TemporaryDirectory() as d:
+            root=Path(d);self.install_in(root,installer.NEW+'\n\n'+installer.PYTHON_BLOCK_V1+'\n')
+            gui=(root/'rea-gui').read_text()
+            self.assertNotIn('prevost-ia',gui)
+            self.assertEqual((gui.count(installer.NEW),gui.count(installer.PYTHON_BLOCK)),(1,1))
+            compile(gui,'rea-gui','exec')
+
     def test_unknown_gui_still_refused_and_nothing_written(self):
         with tempfile.TemporaryDirectory() as d:
             root=Path(d);(root/'rea-gui').write_text('autre version')
             with self.assertRaises(ValueError):installer.install(root,True)
-            self.assertFalse((root/'prevost-ia').exists())
+            self.assertFalse((root/'prevost-rea').exists())
             self.assertFalse((root/'rea-prevost').exists())
 
     def test_symlinked_script_is_refused(self):
         with tempfile.TemporaryDirectory() as d:
             root=Path(d);(root/'rea-gui').write_text(installer.OLD+'\n')
-            (root/'prevost-ia').symlink_to(root/'ailleurs')
+            (root/'prevost-rea').symlink_to(root/'ailleurs')
             with self.assertRaises(ValueError):installer.install(root,True)
 
     def test_button_passes_project_with_spaces_and_cancel_runs_nothing(self):
@@ -222,11 +232,11 @@ class PythonButtonTests(unittest.TestCase):
         process=Mock();namespace={'filedialog':dialog,'shutil':Mock(),'subprocess':process,'log':Mock(),'__file__':'/tmp/local/bin/rea-gui'}
         namespace['shutil'].which.return_value='/usr/bin/xfce4-terminal'
         exec(compile(ast.Module(body=[node],type_ignores=[]),'gui-test','exec'),namespace)
-        namespace['launch_prevost_ia']()
+        namespace['launch_prevost_rea']()
         args=process.Popen.call_args.args[0]
-        self.assertEqual(shlex.split(args[-1]),['/tmp/local/bin/prevost-ia','--project','/tmp/projet avec espaces'])
+        self.assertEqual(shlex.split(args[-1]),['/tmp/local/bin/prevost-rea','--project','/tmp/projet avec espaces'])
         dialog.askdirectory.return_value='';process.reset_mock()
-        namespace['launch_prevost_ia']()
+        namespace['launch_prevost_rea']()
         process.Popen.assert_not_called()
 
     def test_model_comes_from_environment_only_when_not_given(self):
@@ -244,19 +254,19 @@ class PythonButtonTests(unittest.TestCase):
     def test_installed_script_runs_prevost_from_any_directory(self):
         with tempfile.TemporaryDirectory() as d,tempfile.TemporaryDirectory() as elsewhere:
             root=Path(d);self.install_in(root,installer.OLD+'\n')
-            result=self.run_script(root/'prevost-ia',['--help'],elsewhere)
+            result=self.run_script(root/'prevost-rea',['--help'],elsewhere)
             self.assertEqual(result.returncode,0,result.stderr)
             self.assertIn('--corrections',result.stdout)
 
     def test_repository_copy_also_runs_without_installation(self):
-        result=self.run_script(Path(installer.__file__).with_name('prevost-ia'),['--help'],tempfile.gettempdir())
+        result=self.run_script(Path(installer.__file__).with_name('prevost-rea'),['--help'],tempfile.gettempdir())
         self.assertEqual(result.returncode,0,result.stderr)
         self.assertIn('--project',result.stdout)
 
     def test_startup_error_keeps_terminal_open_and_returns_failure(self):
         with tempfile.TemporaryDirectory() as d,tempfile.TemporaryDirectory() as elsewhere:
             root=Path(d);self.install_in(root,installer.OLD+'\n')
-            result=self.run_script(root/'prevost-ia',['--diagnostic','--ollama','http://127.0.0.1:1','--http-timeout','1'],elsewhere)
+            result=self.run_script(root/'prevost-rea',['--diagnostic','--ollama','http://127.0.0.1:1','--http-timeout','1'],elsewhere)
             self.assertEqual(result.returncode,1)
             self.assertIn('Erreur',result.stdout)
             self.assertIn('Entrée pour fermer',result.stdout)

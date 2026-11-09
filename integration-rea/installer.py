@@ -35,7 +35,7 @@ NEW = '''def launch_rea_prevost():
 button("rea-prevost", launch_rea_prevost)''' 
 
 
-PYTHON_BLOCK = '''def launch_prevost_ia():
+PYTHON_BLOCK = '''def launch_prevost_rea():
     from pathlib import Path
     import shlex
     project = filedialog.askdirectory(title="Projet à modifier avec PRÉVOST (plans vérifiés, corrections confirmées)")
@@ -47,7 +47,7 @@ PYTHON_BLOCK = '''def launch_prevost_ia():
     if not terminal and not ptyxis and not fallback:
         log("Aucun terminal compatible trouvé.")
         return
-    shortcut = Path(__file__).with_name("prevost-ia")
+    shortcut = Path(__file__).with_name("prevost-rea")
     try:
         command = [str(shortcut), "--project", project]
         if terminal:
@@ -60,15 +60,17 @@ PYTHON_BLOCK = '''def launch_prevost_ia():
     except OSError as exc:
         log("PRÉVOST non lancé : " + str(exc))
 
-button("prevost-ia", launch_prevost_ia)'''
+button("prevost-rea", launch_prevost_rea)'''
+# Version publiée brièvement sous le nom prevost-ia : migrée vers prevost-rea.
+PYTHON_BLOCK_V1 = PYTHON_BLOCK.replace('launch_prevost_rea', 'launch_prevost_ia').replace('"prevost-rea"', '"prevost-ia"')
 DEPOT_LINE = "DEPOT = None  # remplacé par l'installateur"
 
 
 def python_shortcut_source():
-    """Script du bouton prevost-ia, lié au dépôt où se trouve cet installateur."""
-    source = Path(__file__).with_name('prevost-ia').read_text(encoding='utf-8')
+    """Script du bouton prevost-rea, lié au dépôt où se trouve cet installateur."""
+    source = Path(__file__).with_name('prevost-rea').read_text(encoding='utf-8')
     if source.count(DEPOT_LINE) != 1:
-        raise ValueError('Modèle prevost-ia inattendu ; installation abandonnée.')
+        raise ValueError('Modèle prevost-rea inattendu ; installation abandonnée.')
     return source.replace(DEPOT_LINE, 'DEPOT = ' + repr(str(Path(__file__).resolve().parents[1])))
 
 
@@ -96,7 +98,7 @@ def apply_theme(source):
 def install(bin_dir, apply=False, theme_dir=None):
     bin_dir = Path(bin_dir)
     theme_dir = Path(theme_dir) if theme_dir is not None else bin_dir/'themes'
-    gui, shortcut, python_shortcut = bin_dir/'rea-gui', bin_dir/'rea-prevost', bin_dir/'prevost-ia'
+    gui, shortcut, python_shortcut = bin_dir/'rea-gui', bin_dir/'rea-prevost', bin_dir/'prevost-rea'
     theme = theme_dir/'prevost-noir.tmTheme'
     targets = (gui,shortcut,python_shortcut,theme)
     if any(p.is_symlink() for p in targets):
@@ -110,6 +112,8 @@ def install(bin_dir, apply=False, theme_dir=None):
         updated = original
     else:
         raise ValueError('Bouton REA attendu absent ou ambigu ; aucune modification effectuée.')
+    if PYTHON_BLOCK_V1 in updated:
+        updated = updated.replace(PYTHON_BLOCK_V1,PYTHON_BLOCK)
     if PYTHON_BLOCK not in updated:
         if updated.count(NEW) != 1:
             raise ValueError('Bouton REA attendu absent ou ambigu ; aucune modification effectuée.')
@@ -118,7 +122,7 @@ def install(bin_dir, apply=False, theme_dir=None):
     updated = apply_theme(updated)
     compile(updated,str(gui),'exec')
     print('rea-prevost → choix du projet → Codex → modèle local prevost:latest')
-    print('prevost-ia → choix du projet → PRÉVOST Python (plans vérifiés, corrections confirmées) → modèle au choix')
+    print('prevost-rea → choix du projet → PRÉVOST Python (plans vérifiés, corrections confirmées) → modèle au choix')
     print('Thème : fond noir, texte blanc, code coloré, accents rouges.')
     print('Fichiers :',gui,shortcut,python_shortcut,theme)
     if not apply:
@@ -154,7 +158,7 @@ def install(bin_dir, apply=False, theme_dir=None):
             elif path != gui and path.exists(): path.unlink()
         raise
     print('Installé. Sauvegarde :',backup)
-    print('Fermer puis rouvrir REA ; boutons rea-prevost (Codex) et prevost-ia (PRÉVOST Python). Commandes : rea-prevost, prevost-ia')
+    print('Fermer puis rouvrir REA ; boutons rea-prevost (Codex) et prevost-rea (PRÉVOST Python). Commandes : rea-prevost, prevost-rea')
     return backup
 
 
