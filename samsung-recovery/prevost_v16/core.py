@@ -282,15 +282,15 @@ class Store:
     def export(self):
         outdir = self.root / 'exports'
         outdir.mkdir(parents=True, exist_ok=True)
-        name = 'prevost-samsung-v19-' + dt.datetime.now(dt.timezone.utc).strftime('%Y%m%dT%H%M%S%fZ') + '.zip'
+        name = 'prevost-samsung-v20-' + dt.datetime.now(dt.timezone.utc).strftime('%Y%m%dT%H%M%S%fZ') + '.zip'
         out = outdir / name
         paths = []
-        for folder in ('prevost_v16', 'outils', 'tests', 'rapports/v16', 'rapports/v17', 'rapports/v18', 'rapports/v19'):
+        for folder in ('prevost_v16', 'outils', 'tests', 'rapports/v16', 'rapports/v17', 'rapports/v18', 'rapports/v19', 'rapports/v20'):
             paths.extend(p for p in (self.root / folder).rglob('*')
                          if p.is_file() and not p.is_symlink() and '__pycache__' not in p.parts)
         paths.extend(p for p in (self.root / 'prevost-samsung', self.root / 'README-V16.md',
                                 self.root / 'README-V17.md', self.root / 'README-V18.md',
-                                self.root / 'README-V19.md') if p.is_file())
+                                self.root / 'README-V19.md', self.root / 'README-V20.md') if p.is_file())
         manifest = {str(p.relative_to(self.root)): sha256(p) for p in sorted(paths)}
         with zipfile.ZipFile(out, 'x', zipfile.ZIP_DEFLATED) as archive:
             for p in sorted(paths):

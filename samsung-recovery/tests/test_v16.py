@@ -273,7 +273,7 @@ class UtilityTests(unittest.TestCase):
 
     def test_lexos_palette(self):
         with patch('sys.stdout.isatty', return_value=True), patch('os.environ.get', return_value=None):
-            for color, code in [('red', 31), ('white', 97), ('yellow', 93), ('sky', 96)]:
+            for color, code in [('red', 31), ('white', 97), ('yellow', 93), ('sky', '38;2;135;206;235')]:
                 self.assertIn(f'40;{code}m', paint('LexOS', color))
 
     def test_cli_invalid_watch(self):

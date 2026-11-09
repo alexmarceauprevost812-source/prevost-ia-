@@ -5,3 +5,5 @@ rapports/**/*.json
 rapports/**/*.sha256
 rapports/**/*.jsonl
 rapports/**/recovery-*.txt
+rapports/v19/dossier-*/
+rapports/v20/recuperation-*/

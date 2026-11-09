@@ -130,24 +130,28 @@ Le délai est celui de `--timeout` (30 secondes par défaut, maximum 300) ; pour
 
 
 
-## Samsung Recovery — PRÉVOST V19
+## Samsung Recovery — PRÉVOST V20
 
-Le module terminal [Samsung Recovery](samsung-recovery/README-V19.md) regroupe les
-diagnostics USB/MTP/ADB et la préparation des démarches officielles Google, Samsung
-et Bell. Les fonctions de PRÉVOST IA ci-dessus sont conservées.
+L’[outil Python Samsung Recovery](samsung-recovery/README-V20.md) fournit une détection
+USB automatique, l’identification des transports MTP/ADB/Recovery, l’analyse des rapports
+V17/V18/V19 et un assistant de récupération officielle Google/Samsung/Bell. Les fonctions
+de PRÉVOST IA ci-dessus sont conservées.
 
 ```bash
 cd samsung-recovery
-python3 prevost-samsung
-python3 prevost-samsung google-frp --section google
+python3 prevost-samsung recuperation
+python3 prevost-samsung recuperation --diagnostic
+python3 prevost-samsung recuperation --rapport
 python3 -m unittest discover -s tests -v
 ```
 
-Le choix 10 « Récupération Google FRP » génère uniquement un dossier local et deux
-brouillons non envoyés. Aucun contournement FRP, effacement, flash ou collecte de
-mots de passe, cookies ou jetons n'est ajouté. Les commandes de diagnostic existantes
-restent disponibles ; les limites de chaque sonde sont décrites dans leurs README.
+Le menu terminal propose V20 au choix 11. Chaque collecte crée un rapport JSON/TXT et,
+en mode complet, des demandes Samsung/Bell non envoyées. Le mode `--rapport` consulte
+seulement le dernier relevé local. Les anciennes commandes V16/V18/V19 restent disponibles.
+Aucun contournement FRP, effacement, flash, changement du téléphone ni extraction de secrets.
+Sans compte Google antérieurement synchronisé ou solution de propriété acceptée par le
+prestataire officiel, la remise en service reste bloquée ; aucun déblocage garanti.
 
-Les [conclusions V19](samsung-recovery/rapports/v19/RAPPORT-V19.md) et les sources
-versionnées sont incluses. Les rapports bruts du téléphone et les justificatifs
-personnels restent locaux ; ils ne sont pas publiés dans ce dépôt.
+Les [conclusions V20](samsung-recovery/rapports/v20/RAPPORT-V20.md), les sources et 90 tests
+Samsung sont inclus. Les rapports bruts du téléphone et les justificatifs personnels restent
+locaux. Voir la [validation de publication](samsung-recovery/VALIDATION-PUBLICATION.md).

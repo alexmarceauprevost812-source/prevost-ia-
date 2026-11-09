@@ -123,7 +123,7 @@ class GoogleRecoveryTests(unittest.TestCase):
             p.parent.mkdir(parents=True, exist_ok=True)
             p.write_text('conserver')
         archive, checksum = Store(self.root).export()
-        self.assertTrue(archive.name.startswith('prevost-samsung-v19-'))
+        self.assertTrue(archive.name.startswith('prevost-samsung-v20-'))
         with zipfile.ZipFile(archive) as z:
             for name in ('outils/v19/recuperation_google.py', 'outils/v19/confirmation_utilisateur.json',
                          'README-V19.md','rapports/v17/old.txt','rapports/v18/old.txt',
