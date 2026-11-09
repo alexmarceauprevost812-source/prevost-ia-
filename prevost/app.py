@@ -417,6 +417,9 @@ PLAN_INSTRUCTION = (
     'Chaque contrôle vérifie la syntaxe puis la sortie réelle. Ne pas annoncer un code correct sans ces preuves. '
     'Le programme est lancé sans argument et n’a qu’une seule sortie : un seul contrôle par fichier, '
     'avec la sortie exacte et complète de cette exécution. '
+    'Un fichier de tests qui appelle unittest.main() n’affiche rien sur la sortie normale (unittest écrit son verdict sur '
+    'la sortie d’erreur, que PRÉVOST lit lui-même) : son expected_stdout est "". Un module qui ne fait que définir des '
+    'fonctions n’affiche rien non plus : expected_stdout "". '
     'Pas de suppression, réseau ni modification système. Les fichiers existants '
     'ne sont connus que si fournis dans le contexte. Demande : ')
 QUOTE_HINT = ('Dans une chaîne JSON, échappe chaque guillemet double ainsi : \\" . Dans le code Python, '

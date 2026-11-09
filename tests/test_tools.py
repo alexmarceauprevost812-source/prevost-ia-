@@ -156,6 +156,90 @@ class ToolsTests(unittest.TestCase):
         self.assertFalse(result['source_unchanged'])
         self.assertEqual(result['code_checks']['execution'], 'failed')
 
+    UNITTEST_OK = ('import unittest\nclass T(unittest.TestCase):\n    def test_a(self):\n        self.assertEqual(1 + 1, 2)\n\n'
+                   'if __name__ == "__main__":\n    unittest.main()\n')
+
+    def run_file(self, name, source, expected_stdout):
+        self.project.write(name, source, lambda _: True)
+        return self.registry.execute('python.run', {'path': name, 'expected_stdout': expected_stdout})
+
+    def test_unittest_file_is_verified_by_unittest_verdict_not_by_stdout(self):
+        # unittest écrit son verdict sur stderr : quelle que soit l'annonce sur stdout, c'est le verdict qui compte.
+        for claim in ('', 'OK\n', 'Ran 1 test\n'):
+            with self.subTest(claim=claim):
+                result = self.run_file('t_ok.py', self.UNITTEST_OK, claim)
+                self.assertTrue(result['verified'], result)
+                self.assertEqual(result['verification_mode'], 'unittest')
+                self.assertEqual(result['unittest'], {'tests': 1, 'verdict': 'OK'})
+                self.assertEqual(result['evidence']['stdout'], '')
+                self.assertEqual(result['code_checks'], {'syntax': 'passed', 'execution': 'passed'})
+
+    def test_failing_or_empty_unittest_is_not_verified(self):
+        failing = self.UNITTEST_OK.replace('1 + 1, 2', '1 + 1, 3')
+        result = self.run_file('t_ko.py', failing, '')
+        self.assertFalse(result['verified'])
+        self.assertEqual(result['code_checks']['execution'], 'failed')
+        empty = 'import unittest\nclass T(unittest.TestCase):\n    pass\n\nunittest.main()\n'
+        result = self.run_file('t_empty.py', empty, '')
+        self.assertFalse(result['verified'])
+        self.assertEqual(result['code_checks']['execution'], 'failed')
+
+    def test_unittest_mentioned_in_text_keeps_the_strict_stdout_rule(self):
+        source = ('import sys\n# unittest.main()\nprint("unittest.main()")\n'
+                  'sys.stderr.write("Ran 1 test in 0.0s\\n\\nOK\\n")\n')
+        result = self.run_file('fake.py', source, 'OK\n')
+        self.assertFalse(result['verified'])
+        self.assertNotIn('verification_mode', result)
+        self.assertEqual(result['code_checks']['execution'], 'failed')
+
+    def test_runs_unittest_detection_is_syntactic(self):
+        from prevost.tools import runs_unittest, unittest_verdict
+        self.assertTrue(runs_unittest('import unittest\nunittest.main()\n'))
+        self.assertTrue(runs_unittest('import unittest\nif __name__ == "__main__":\n    unittest.main(verbosity=2)\n'))
+        self.assertTrue(runs_unittest('from unittest import main\nmain()\n'))
+        self.assertFalse(runs_unittest('print("unittest.main()")\n'))
+        self.assertFalse(runs_unittest('# unittest.main()\nmain()\n'))
+        self.assertFalse(runs_unittest('def main():\n    pass\nmain()\n'))
+        self.assertFalse(runs_unittest('def (:\n'))
+        self.assertEqual(unittest_verdict('...\nRan 3 tests in 0.001s\n\nOK\n'), (3, 'OK'))
+        self.assertEqual(unittest_verdict('Ran 0 tests in 0.000s\n\nNO TESTS RAN\n'), (0, 'NO TESTS RAN'))
+        self.assertEqual(unittest_verdict(''), (0, ''))
+
+    def run_with_unittest_output(self, stderr, returncode=0, status='ok'):
+        """Exécute un vrai fichier unittest dont la sortie est remplacée par une sortie simulée précise."""
+        self.project.write('t_sim.py', self.UNITTEST_OK, lambda _: True)
+        fake = {'argv': [], 'returncode': returncode, 'stdout': '', 'stderr': stderr, 'status': status, 'duration': 0}
+        with patch('prevost.tools.process', return_value=fake):
+            return self.registry.execute('python.run', {'path': 't_sim.py', 'expected_stdout': ''})
+
+    def test_unittest_verdict_with_zero_tests_is_never_verified(self):
+        # Anciennes versions de Python : « Ran 0 tests » suivi de OK avec le code 0. Ce n'est pas une preuve.
+        for stderr in ('Ran 0 tests in 0.000s\n\nOK\n', '\n----\nRan 0 tests in 0.000s\n\nNO TESTS RAN\n', ''):
+            with self.subTest(stderr=stderr):
+                result = self.run_with_unittest_output(stderr)
+                self.assertFalse(result['verified'], result)
+                self.assertEqual(result['status'], 'verification_failed')
+                self.assertEqual(result['unittest']['tests'], 0)
+                self.assertEqual(result['code_checks']['execution'], 'failed')
+
+    def test_unittest_failed_verdict_is_refused_even_with_return_code_zero(self):
+        # unittest.main(exit=False) rend 0 même quand des tests échouent : seul le verdict lu sur stderr le révèle.
+        result = self.run_with_unittest_output('F\n======\nFAIL: test_a\n\nRan 1 test in 0.001s\n\nFAILED (failures=1)\n')
+        self.assertFalse(result['verified'], result)
+        self.assertEqual(result['unittest'], {'tests': 1, 'verdict': 'FAILED (failures=1)'})
+        self.assertEqual(result['code_checks']['execution'], 'failed')
+
+    def test_unittest_ok_verdict_needs_return_code_zero_and_a_real_count(self):
+        result = self.run_with_unittest_output('..\n----\nRan 2 tests in 0.001s\n\nOK\n')
+        self.assertTrue(result['verified'], result)
+        self.assertEqual(result['unittest'], {'tests': 2, 'verdict': 'OK'})
+        # Même verdict « OK » mais code de retour non nul : refusé.
+        result = self.run_with_unittest_output('Ran 2 tests in 0.001s\n\nOK\n', returncode=1, status='error')
+        self.assertFalse(result['verified'], result)
+        # Verdict seulement affiché dans un texte quelconque, pas sur la ligne finale : refusé.
+        result = self.run_with_unittest_output('Ran 1 test in 0.001s\n\nOK\nautre chose ensuite\n')
+        self.assertFalse(result['verified'], result)
+
     def test_finish_after_write_without_checks_is_incomplete(self):
         result = Agent(self.registry, self.ui).run('Écrire Python', scripted(demo_steps()[:2]))
         self.assertEqual(result['termination'], 'verification_incomplete')
