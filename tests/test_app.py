@@ -114,6 +114,34 @@ class AppTests(unittest.TestCase):
         self.assertFalse(result['timeout'])
         self.assertEqual(len(Project(self.root, self.state).conversation()), 2)
 
+    def test_coder_double_verification_real_success_failure_and_missing(self):
+        ui = UI()
+        ui.confirm = lambda _: True
+        for expected, status in [('bonjour\n', 'double_verification_reussie'),
+                                 ('incorrect\n', 'verification_incomplete'),
+                                 (None, 'verification_incomplete')]:
+            plan = {'files': [{'path': 'verified.py', 'content': 'print("bonjour")\n'}],
+                    'commands': [], 'checks': ([] if expected is None else [
+                        {'path': 'verified.py', 'expected_stdout': expected}])}
+            class Model:
+                def chat(self, *args, **kwargs):
+                    yield json.dumps(plan)
+            with self.subTest(expected=expected), contextlib.redirect_stdout(io.StringIO()):
+                validation = code_mission(Model(), 'simulé', self.project, 'Saluer', ui, 5)
+            self.assertEqual(validation['status'], status)
+        records = [json.loads(line) for line in self.project.record.read_text().splitlines()]
+        self.assertEqual([r['status'] for r in records if r.get('event') == 'code_validation'],
+                         ['double_verification_reussie', 'verification_incomplete', 'verification_incomplete'])
+
+    def test_coder_invalid_check_stops_before_writing(self):
+        class Model:
+            def chat(self, *args, **kwargs):
+                yield json.dumps({'files': [{'path': 'not_written.py', 'content': 'pass\n'}],
+                                  'checks': [{'path': '../outside.py', 'expected_stdout': ''}]})
+        with contextlib.redirect_stdout(io.StringIO()), self.assertRaises(ValueError):
+            code_mission(Model(), 'simulé', self.project, 'Écrire', UI(), 5)
+        self.assertFalse((self.root/'not_written.py').exists())
+
     def test_refused_command_does_not_execute(self):
         result = self.project.run([sys.executable, '-c', 'open("bad", "w").close()'], 2, lambda _: False)
         self.assertTrue(result['cancelled'])
@@ -189,6 +217,7 @@ class AppTests(unittest.TestCase):
     def test_cli_manual_mission_real(self):
         commands = '/ecrire hello.py\nprint("MISSION_OK")\n.fin\noui\n/commande ' + shlex_executable() + ' hello.py\noui\n/quitter\n'
         result = subprocess.run([sys.executable, '-B', '-m', 'prevost', '--project', str(self.root),
+            '--state-dir', str(Path(self.tmp.name)/'cli-state'),
             '--ollama', 'http://127.0.0.1:1', '--http-timeout', '.1'], input=commands,
             text=True, capture_output=True, timeout=10)
         self.assertEqual(result.returncode, 0, result.stderr)
@@ -198,13 +227,13 @@ class AppTests(unittest.TestCase):
 
     def test_network_commands_dispatch_without_model_or_implicit_audit(self):
         from prevost.app import main
-        commands = ['/reseaux', '/arreter-reseau', '/retirer-reseau identifiant', '/veille-reseau', '/quitter']
+        commands = ['/reseaux', '/appareils', '/arreter-reseau', '/retirer-reseau identifiant', '/veille-reseau', '/quitter']
         with patch('prevost.app.Project', return_value=self.project), patch.object(Ollama, 'models', return_value=['simule']), \
              patch('builtins.input', side_effect=commands), patch('prevost.network.main', return_value=0) as network_main, \
              contextlib.redirect_stdout(io.StringIO()):
             self.assertEqual(main(['--project', str(self.root), '--model', 'simule', '--ollama', 'http://127.0.0.1:11434']), 0)
         self.assertEqual([call.args[0] for call in network_main.call_args_list],
-                         [['liste'], ['arreter'], ['retirer', '--network', 'identifiant'], ['veille']])
+                         [['liste'], ['appareils'], ['arreter'], ['retirer', '--network', 'identifiant'], ['veille']])
 
     def test_vault_stays_out_of_model_and_conversation_history(self):
         from prevost.app import main

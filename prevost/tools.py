@@ -177,7 +177,7 @@ class Registry:
         self.add('python.run', 'Exécuter un fichier Python du projet, comparer sa sortie attendue',
             {'path': {**path, 'suffix': '.py'}, 'expected_stdout': {'type': 'string', 'max_bytes': LIMIT}},
             ['execution_code', 'peut_modifier_systeme', 'peut_acceder_reseau'], 15,
-            'Code retour 0 ET stdout exactement égal à expected_stdout ; ne prouve pas toute la demande', sensitive=True)
+            'Deux contrôles : syntaxe Python, puis retour 0 ET stdout attendu exact ; source inchangée après exécution', sensitive=True)
         self.add('local.disk', 'Mesurer le disque racine visible', {}, ['lecture_statvfs'], 3,
             'Valeurs numériques cohérentes : 0 <= libre <= total et total > 0')
 
@@ -275,8 +275,10 @@ class Registry:
             deadline = min(spec.timeout, remaining)
             source = None
             if name == 'python.run':
+                result['code_checks'] = {'syntax': 'failed', 'execution': 'not_run'}
                 source = self.project.read(params['path'])
                 compile(source, params['path'], 'exec')
+                result['code_checks']['syntax'] = 'passed'
             if spec.sensitive and name != 'project.write':
                 if not self.confirm('Action sensible proposée : ' + name + '\n' + json.dumps(params, ensure_ascii=False) +
                     ('\nCode à examiner (donnée non fiable) :\n' + source if source is not None else '') +
@@ -342,6 +344,10 @@ class Registry:
                     verified = verified and evidence['stdout'] == params['expected_stdout']
                     result['stdout_matches'] = evidence['stdout'] == params['expected_stdout']
                     result['source_sha256'] = hashlib.sha256(source.encode()).hexdigest()
+                    unchanged = self.project.read(params['path']) == source
+                    verified = verified and unchanged
+                    result['source_unchanged'] = unchanged
+                    result['code_checks']['execution'] = 'passed' if verified else 'failed'
                 elif name.startswith('rea.'):
                     payload = json.loads(evidence['stdout'])
                     if not isinstance(payload, dict):

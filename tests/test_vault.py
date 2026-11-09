@@ -51,6 +51,52 @@ class VaultTests(unittest.TestCase):
             self.vault.metadata(PASSWORD)
         self.assertEqual(self.vault.path.read_bytes(), bytes(blob))
 
+    def test_generic_secret_encryption_reveal_and_remove_with_legacy_cookie(self):
+        self.create()
+        cookie = self.vault.add(PASSWORD, 'exemple.test', 'session', SECRET)
+        identifier = self.vault.add_secret(PASSWORD, 'jeton-api', 'Service fictif', 'JETON_FICTIF_123')
+        reopened = v.Vault(self.vault.directory)
+        self.assertEqual(reopened.reveal(PASSWORD, identifier), 'JETON_FICTIF_123')
+        self.assertEqual(reopened.reveal(PASSWORD, cookie), SECRET)
+        with self.assertRaises(ValueError): reopened.reveal('incorrect', identifier)
+        with self.assertRaises(ValueError): reopened.reveal(PASSWORD, 'absent')
+        self.assertNotIn('JETON_FICTIF_123', json.dumps(reopened.metadata(PASSWORD)))
+        for path in self.vault.directory.iterdir():
+            self.assertNotIn(b'JETON_FICTIF_123', path.read_bytes())
+            self.assertNotIn(b'Service fictif', path.read_bytes())
+        reopened.remove(PASSWORD, identifier)
+        self.assertEqual(len(reopened.metadata(PASSWORD)), 1)
+
+    def test_cli_reveal_requires_terminal_confirmation_and_password(self):
+        self.create()
+        identifier = self.vault.add(PASSWORD, 'exemple.test', 'session', SECRET)
+        args = ['voir', '--state-dir', str(self.vault.directory)]
+        with patch('sys.stdout.isatty', return_value=False), patch.object(v, 'hidden') as hidden, \
+             contextlib.redirect_stdout(io.StringIO()) as output:
+            self.assertEqual(v.main(args), 1)
+        hidden.assert_not_called()
+        self.assertNotIn(SECRET, output.getvalue())
+        with contextlib.redirect_stdout(io.StringIO()) as output, patch('sys.stdout.isatty', return_value=True), \
+             patch('builtins.input', side_effect=[identifier, 'non']), patch.object(v, 'hidden') as hidden:
+            self.assertEqual(v.main(args), 0)
+        hidden.assert_not_called()
+        self.assertNotIn(SECRET, output.getvalue())
+        with contextlib.redirect_stdout(io.StringIO()) as output, patch('sys.stdout.isatty', return_value=True), \
+             patch('builtins.input', side_effect=[identifier, 'oui']), patch.object(v, 'hidden', return_value=PASSWORD):
+            self.assertEqual(v.main(args), 0)
+        self.assertIn(SECRET, output.getvalue())
+        self.assertNotIn(PASSWORD, output.getvalue())
+
+    def test_cli_add_generic_secret_does_not_display_value(self):
+        self.create()
+        with patch.object(v, 'hidden', side_effect=[PASSWORD, SECRET]), \
+             patch('builtins.input', side_effect=['mot-de-passe', 'Compte fictif', 'oui']), \
+             contextlib.redirect_stdout(io.StringIO()) as output:
+            self.assertEqual(v.main(['secret', '--state-dir', str(self.vault.directory)]), 0)
+        self.assertNotIn(SECRET, output.getvalue())
+        self.assertNotIn(PASSWORD, output.getvalue())
+        self.assertEqual(self.vault.reveal(PASSWORD, self.vault.metadata(PASSWORD)[0]['id']), SECRET)
+
     def test_unique_salt_nonce_and_protected_metadata(self):
         self.create()
         first = self.vault.path.read_bytes()

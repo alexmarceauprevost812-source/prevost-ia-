@@ -91,6 +91,7 @@ class ScanTests(unittest.TestCase):
         env = {**os.environ, 'PATH': str(binary_dir) + os.pathsep + os.environ.get('PATH', '')}
         commands = 'scam complet\nscanme.nmap.org\noui\n/quitter\n'
         result = subprocess.run([sys.executable, '-B', '-m', 'prevost', '--project', str(self.root),
+                                 '--state-dir', str(Path(self.tmp.name)/'cli-state'),
                                  '--ollama', 'http://127.0.0.1:1', '--http-timeout', '.1'],
                                 input=commands, text=True, capture_output=True, env=env, timeout=10)
         self.assertEqual(result.returncode, 0, result.stderr)

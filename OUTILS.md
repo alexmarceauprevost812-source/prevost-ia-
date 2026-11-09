@@ -24,7 +24,7 @@ python3 -m prevost.agent mission "Crée un programme Python de salutation et vé
 python3 -m prevost.agent outil local.disk --project /chemin/du/projet --params '{}'
 ```
 
-Dans l’interface `python3 -m prevost`, `/outils` affiche le même registre et `/agent demande` lance la boucle avec le modèle sélectionné. Les anciennes commandes `/coder` et `/commande` sont conservées ; elles ne passent pas par ce nouveau registre et gardent les limites documentées dans le README.
+Dans l’interface `python3 -m prevost`, `/outils` affiche le même registre et `/agent demande` lance la boucle avec le modèle sélectionné. `/coder` conserve son plan de fichiers et commandes puis utilise `python.run` pour ses contrôles de code. `/commande` conserve sa confirmation habituelle.
 
 ## Boucle
 
@@ -38,7 +38,7 @@ Dans l’interface `python3 -m prevost`, `/outils` affiche le même registre et 
 
 Le modèle propose seulement `{plan, tool, parameters}` en JSON. Il ne peut pas ajouter un outil, une option shell, une cible ni une autorisation. Les résultats lui sont transmis comme données non fiables. Les contrats et résultats sont revérifiés par le code, et le rapport ne reprend pas comme faits les affirmations du modèle.
 
-Une erreur peut être examinée à l’étape suivante ; un appel identique est refusé pendant la même mission. Un refus humain ou une annulation arrête la mission. Limites par défaut : huit étapes, 120 secondes ; plafonds configurables de vingt étapes et 600 secondes. Les confirmations peuvent être interrompues avec Ctrl+C ; le budget est revérifié avant l’exécution après une attente prolongée.
+Une erreur peut être examinée à l’étape suivante ; un appel identique est refusé pendant la même mission. Exception : une écriture réussie permet de refaire les mêmes contrôles `python.run` sur la nouvelle version. Un refus humain ou une annulation arrête la mission. Limites par défaut : huit étapes, 120 secondes ; plafonds configurables de vingt étapes et 600 secondes. Les confirmations peuvent être interrompues avec Ctrl+C ; le budget est revérifié avant l’exécution après une attente prolongée.
 
 ## Registre initial
 
@@ -61,6 +61,10 @@ La disponibilité est sondée lors de la création du registre. Les outils locau
 Les sondes Kali vérifient d’abord Podman et la présence de `kali-lexos` parmi les conteneurs actifs. Elles ne démarrent aucun conteneur. L’inventaire recherche `python3`, `nmap`, `tshark`, `file` et `strings` : un chemin observé signifie présence seulement. Ces exécutables ne deviennent pas automatiquement des outils exécutables du registre. Dans cette session, Podman est bloqué ; aucune présence Kali n’a donc été affirmée.
 
 ## Vérification et preuves
+
+`python.run` fournit deux critères distincts dans `code_checks` : `syntax` (compilation sans exécution) et `execution` (retour zéro, stdout attendu exact et source inchangée). Un contrôle absent, refusé, expiré ou échoué ne compte pas comme réussi. L’empreinte `source_sha256` est comparée à la source présente au bilan. Les dépendances et les effets de bord ne sont pas couverts par cette empreinte.
+
+Après une écriture, `/agent` exige les deux contrôles pour chaque fichier écrit avant d’accepter `finish` comme `plan_termine`. Il ne compte que les contrôles postérieurs à la dernière écriture de la mission, y compris lorsqu’un autre fichier est modifié. Une fin sans preuves devient `verification_incomplete` et la CLI retourne un échec. Les fichiers non Python restent sans double validation automatique. Les missions de lecture seule conservent leur fonctionnement. Ce bilan est enregistré dans le rapport et le journal ; ce n’est pas une certification de correction fonctionnelle générale.
 
 Chaque résultat comporte un identifiant, une date, le périmètre, les paramètres, les effets, la sortie réelle, les erreurs, la durée, le critère de vérification, un booléen `verified`, le niveau de confiance et une empreinte de la preuve. Les statuts distinguent réussite, vérification échouée, erreur, indisponibilité, refus, annulation, délai et sortie trop volumineuse.
 

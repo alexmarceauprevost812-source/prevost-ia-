@@ -1,8 +1,12 @@
-# PRÉVOST IA Local — v1
+# PRÉVOST IA Local — v2
+
+La branche `v2` réunit les historiques de `main` et `feature/prevost-local-v1`, dont les fichiers étaient identiques au moment de la réunion. La branche `supabase` est déjà incluse dans `main` ; elle ne contient aucune intégration Supabase supplémentaire. Cette base v2 conserve les fonctions existantes et ajoute le choix du dossier d’historique avec `--state-dir`.
 
 Assistant Python de programmation locale avec Ollama. Le cœur fonctionne sans dépendance Python externe ; le coffre optionnel utilise `cryptography`. Python 3.10+ et Linux sont requis pour l’arrêt des groupes de processus.
 
 ## Lancement
+
+Pour Android, voir la [version Termux](TERMUX.md) : installateur, lanceur `prevost`, coffre et limites réseau.
 
 Depuis ce dépôt :
 
@@ -29,13 +33,23 @@ python3 -m prevost --project /tmp/mon-projet --model NOM_INSTALLE --timeout 30
 - `/scan [cible]`, `scan complet` ou `scam complet` : demander une cible précise et proposer `nmap -v -A CIBLE` avec une autorisation distincte, même sans modèle disponible.
 - `/historique` : afficher les derniers échanges ; `/aide` et `/quitter`.
 
-Pour modifier un fichier avec Ollama, le lire d’abord avec `/lire`, puis utiliser `/coder` en décrivant la modification. Refuser un fichier interrompt la mission avant les commandes. Une commande refusée, expirée ou en échec interrompt la suite du plan. Une sortie réussie ne prouve que le résultat de cette commande ; le modèle ne vérifie pas automatiquement la conformité à la demande.
+Pour modifier un fichier avec Ollama, le lire d’abord avec `/lire`, puis utiliser `/coder` en décrivant la modification. Refuser un fichier interrompt la mission avant les commandes. Une commande refusée, expirée ou en échec interrompt la suite du plan. Une sortie réussie ne prouve que le résultat de cette commande.
+
+### Double vérification du code Python
+
+Dans `/coder` et `/agent`, le bilan du code exige deux contrôles complémentaires pour chaque fichier écrit : compilation de la syntaxe sans exécuter le programme, puis exécution confirmée avec code retour zéro et comparaison exacte à une sortie attendue. Une relecture ne remplace aucun de ces contrôles. L’empreinte du fichier doit encore correspondre au bilan ; une modification pendant l’exécution invalide le contrôle.
+
+`/coder` demande au modèle une liste `checks` de contrôles `{ "path": "programme.py", "expected_stdout": "sortie attendue\n" }`, exécutés après les écritures et commandes. Un ancien plan sans contrôles peut toujours écrire les fichiers confirmés, mais son bilan indique `verification_incomplete`. `/agent` refuse une fin de mission réussie après des écritures sans ces preuves ; toute nouvelle écriture impose de refaire les contrôles de tous les fichiers écrits pendant la mission. Les rapports présentent le détail et les identifiants de preuve.
+
+Le bilan `double_verification_reussie` porte sur ces deux critères seulement : il ne prouve pas tous les comportements, les dépendances ni la sécurité. Le modèle reçoit la consigne de prévoir des tests pertinents pour les cas normaux et les erreurs, mais leur qualité reste à examiner. Pour un module sans sortie, une exécution silencieuse ne teste pas ses fonctions ; prévoir aussi une suite de tests confirmée. La double vérification automatique actuelle concerne Python ; les autres langages restent signalés sans validation complète. Aucun test proposé par le modèle n’est exécuté sans confirmation.
 
 Sans Ollama, les commandes manuelles restent disponibles. Dans la conversation, `/coder` et `/agent`, l’interface emploie un fond noir, le nom et l’étiquette PRÉVOST rouges, les réponses bleu ciel RGB `#87CEEB` (aussi pendant le streaming), les noms d’outils et commandes jaunes RGB `#FFFF00`, l’invite « Vous > », la saisie et les résultats bruts blancs. Les couleurs sont réinitialisées après chaque affichage et lors des interruptions. Les séquences de contrôle provenant du modèle et des fichiers sont neutralisées. Les couleurs sont désactivées hors terminal ou avec `NO_COLOR=1`.
 
 ## Historique et sauvegardes
 
-Le [coffre local](COFFRE.md), accessible par `/coffre`, conserve uniquement les cookies de vos propres comptes que vous fournissez explicitement, chiffrés par phrase de passe sur votre appareil. Les valeurs ne sont ni affichées, ni ajoutées au modèle ou à l’historique. Le stockage n’autorise pas l’utilisation par un outil ; aucun branchement à Themus n’est encore effectué.
+L’option `--state-dir DOSSIER` permet de choisir le dossier des historiques et sauvegardes de la CLI, par exemple dans un environnement où le dossier personnel est inaccessible. Un sous-dossier propre à chaque projet y est créé. Choisir un emplacement privé hors Git ; réutiliser le même dossier pour retrouver l’historique. Cette option ne change pas les emplacements propres au coffre, au gardien ou à la veille réseau.
+
+Le [coffre local](COFFRE.md), accessible par `/coffre`, conserve vos cookies, mots de passe et jetons fournis explicitement, chiffrés par phrase de passe sur votre appareil. Le mode `secret` ajoute un secret et `voir` révèle sa valeur dans le terminal après confirmation et déverrouillage. Les valeurs ne sont pas ajoutées au modèle ou à l’historique. Le stockage n’autorise pas l’utilisation par un outil ; aucun branchement à `mon-secret-cookie` n’est encore effectué.
 
 Les échanges, résultats de commandes et sauvegardes des fichiers modifiés restent dans `~/.local/share/prevost-ia-local/<empreinte-du-chemin-du-projet>/`, hors du dépôt. À la réouverture du même dossier, les vingt derniers messages sont repris, avec une lecture bornée à 200 Ko d’historique. Le fichier de journal est privé (mode 600), son dossier en mode 700. Les sauvegardes permettent une restauration manuelle ; aucune suppression automatique n’est effectuée. Déplacer le projet change son identifiant de mémoire.
 
@@ -62,6 +76,8 @@ python3 -B -m unittest discover -s tests -v
 Voir [VALIDATION.md](VALIDATION.md) pour distinguer les essais locaux réels, les simulations et les blocages Ollama.
 
 ## Gardien numérique — diagnostic du PC LexOS
+
+Dans Termux, le gardien identifie son environnement Android, mesure le stockage du dossier personnel et indique les contrôles systemd comme indisponibles sans les exécuter. Les autres collectes restent soumises aux permissions Android ; voir [TERMUX.md](TERMUX.md).
 
 L’agent de programmation est conservé. Un module distinct fournit un diagnostic déterministe, sans Ollama et sans commandes proposées par un modèle :
 

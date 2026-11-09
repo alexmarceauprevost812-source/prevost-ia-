@@ -31,6 +31,7 @@ class ToolsTests(unittest.TestCase):
         self.assertEqual(result['termination'], 'plan_termine')
         self.assertEqual([row['verified'] for row in result['results']], [True]*3)
         self.assertEqual(result['results'][-1]['evidence']['stdout'], 'PRÉVOST : mission locale vérifiée\n')
+        self.assertEqual(result['code_validation']['status'], 'double_verification_reussie')
         self.assertIn('Rapport PRÉVOST', Path(result['report']).read_text())
         rows = [json.loads(line) for line in self.registry.journal.read_text().splitlines()]
         self.assertTrue(any(row.get('event') == 'mission_end' for row in rows))
@@ -70,6 +71,72 @@ class ToolsTests(unittest.TestCase):
         self.assertEqual(result['status'], 'verification_failed')
         self.assertFalse(result['verified'])
         self.assertEqual(result['evidence']['stdout'], 'actual\n')
+        self.assertEqual(result['code_checks'], {'syntax': 'passed', 'execution': 'failed'})
+
+    def test_syntax_failure_never_executes_code(self):
+        self.project.write('bad.py', 'print("invalide"\n', lambda _: True)
+        with patch('prevost.tools.process') as execute:
+            result = self.registry.execute('python.run', {'path': 'bad.py', 'expected_stdout': ''})
+        execute.assert_not_called()
+        self.assertFalse(result['verified'])
+        self.assertEqual(result['code_checks'], {'syntax': 'failed', 'execution': 'not_run'})
+
+    def test_self_modifying_source_cannot_pass(self):
+        source = 'from pathlib import Path\nPath(__file__).write_text("print(123)\\n")\nprint("ok")\n'
+        self.project.write('selfmod.py', source, lambda _: True)
+        result = self.registry.execute('python.run', {'path': 'selfmod.py', 'expected_stdout': 'ok\n'})
+        self.assertEqual(result['status'], 'verification_failed')
+        self.assertFalse(result['source_unchanged'])
+        self.assertEqual(result['code_checks']['execution'], 'failed')
+
+    def test_finish_after_write_without_checks_is_incomplete(self):
+        result = Agent(self.registry, self.ui).run('Écrire Python', scripted(demo_steps()[:2]))
+        self.assertEqual(result['termination'], 'verification_incomplete')
+        self.assertEqual(result['code_validation']['status'], 'verification_incomplete')
+
+    def test_write_after_verification_invalidates_all_previous_checks(self):
+        steps = demo_steps() + [{'plan': 'Ajouter une dépendance après les tests.', 'tool': 'project.write',
+                               'parameters': {'path': 'dependency.py', 'content': 'VALUE = 1\n'}}]
+        result = Agent(self.registry, self.ui).run('Modifier après tests', scripted(steps))
+        self.assertEqual(result['termination'], 'verification_incomplete')
+        self.assertTrue(all(not row['verified'] for row in result['code_validation']['files']))
+
+    def test_external_source_change_before_finish_invalidates_proof(self):
+        steps = iter(demo_steps())
+        def planner(*_):
+            try:
+                return next(steps)
+            except StopIteration:
+                (self.project.root/'prevost_demo.py').write_text('print("autre")\n')
+                return {'plan': 'Terminer.', 'tool': 'finish', 'parameters': {}}
+        result = Agent(self.registry, self.ui).run('Mutation extérieure', planner)
+        self.assertEqual(result['termination'], 'verification_incomplete')
+        self.assertFalse(result['code_validation']['files'][0]['verified'])
+
+    def test_same_check_can_run_again_after_dependency_write(self):
+        steps = demo_steps() + [
+            {'plan': 'Créer la dépendance.', 'tool': 'project.write',
+             'parameters': {'path': 'dependency.py', 'content': 'VALUE = 1\n'}},
+            demo_steps()[-1],
+            {'plan': 'Vérifier la dépendance.', 'tool': 'python.run',
+             'parameters': {'path': 'dependency.py', 'expected_stdout': ''}}]
+        result = Agent(self.registry, self.ui).run('Revérifier après écriture', scripted(steps))
+        self.assertEqual(result['termination'], 'plan_termine')
+        self.assertEqual(result['code_validation']['status'], 'double_verification_reussie')
+
+    def test_non_python_write_remains_without_complete_validation(self):
+        result = Agent(self.registry, self.ui).run('Créer JavaScript', scripted([
+            {'plan': 'Créer un fichier.', 'tool': 'project.write',
+             'parameters': {'path': 'app.js', 'content': 'console.log("test");\n'}}]))
+        self.assertEqual(result['termination'], 'verification_incomplete')
+        self.assertIn('Python seulement', result['code_validation']['files'][0]['reason'])
+
+    def test_report_cannot_overwrite_verified_code(self):
+        result = Agent(self.registry, self.ui).run('Protéger le code vérifié', scripted(demo_steps()),
+                                                  'prevost_demo.py')
+        self.assertFalse(result['exported'])
+        self.assertEqual(self.project.read('prevost_demo.py'), demo_steps()[0]['parameters']['content'])
+        self.assertEqual(result['code_validation']['status'], 'double_verification_reussie')
 
     def test_sensitive_refusal_and_stop(self):
         self.registry.confirm = lambda _: False

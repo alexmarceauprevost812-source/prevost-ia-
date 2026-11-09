@@ -1,12 +1,13 @@
 import copy
 import json
+from collections import namedtuple
 from pathlib import Path
 import subprocess
 import tempfile
 import unittest
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
-from prevost.guardian import CHECKS, Watch, canonical, collect, probe, recommendations
+from prevost.guardian import CHECKS, Watch, canonical, collect, probe, recommendations, main
 
 
 class GuardianTests(unittest.TestCase):
@@ -61,10 +62,42 @@ class GuardianTests(unittest.TestCase):
         def run(argv):
             calls.append(argv)
             return {'status': 'observe', 'sortie': ''}
-        report = collect(run=run)
+        with patch('prevost.guardian.is_termux', return_value=False):
+            report = collect(run=run)
         self.assertEqual(calls, list(CHECKS.values()))
         self.assertEqual(report['appareil']['id'], 'pc-local')
         self.assertIn('non explorés', report['appareil']['reseaux_voisins'])
+
+    def test_termux_collects_home_disk_and_does_not_invoke_systemd(self):
+        usage = namedtuple('Usage', 'total used free')(100, 95, 5)
+        with patch('prevost.guardian.is_termux', return_value=True), \
+             patch('prevost.guardian.Path.home', return_value=Path('/termux/private')):
+            disk = Mock(return_value=usage)
+            run = Mock(return_value={'status': 'observe', 'sortie': ''})
+            report = collect(run=run, disk=disk)
+        disk.assert_called_once_with('/termux/private')
+        self.assertEqual([c.args[0] for c in run.call_args_list], [CHECKS['ports'], CHECKS['mises_a_jour']])
+        for name in ('services', 'services_systeme'):
+            self.assertEqual(report['controles'][name]['status'], 'indisponible')
+        self.assertEqual(report['appareil']['systeme'], 'Android / Termux')
+        self.assertIn('/termux/private', recommendations(report)[0]['constat'])
+
+    def test_invalid_disk_measurement_stays_unknown(self):
+        for total, free in ((0, 0), (10, 11), (10, -1)):
+            with self.subTest(total=total, free=free):
+                usage = namedtuple('Usage', 'total free')(total, free)
+                report = collect(run=Mock(return_value={'status': 'observe', 'sortie': ''}),
+                                 disk=Mock(return_value=usage))
+                self.assertEqual(report['controles']['disque']['status'], 'indisponible')
+
+    def test_nonfinite_watch_interval_rejected_before_collection(self):
+        import contextlib
+        import io
+        for interval in ('nan', 'inf', '-inf'):
+            with self.subTest(interval=interval), patch('prevost.guardian.collect') as collector, \
+                 contextlib.redirect_stderr(io.StringIO()), self.assertRaises(SystemExit):
+                main(['veille', '--interval=' + interval])
+            collector.assert_not_called()
 
 
 if __name__ == '__main__':

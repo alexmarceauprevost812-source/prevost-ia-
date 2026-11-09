@@ -49,6 +49,25 @@ class NetworkTests(unittest.TestCase):
     def row(self):
         return self.store.read()['networks'][self.connection['id']]
 
+    def test_device_inventory_ids_presence_sorting_and_cli_without_scan(self):
+        self.approve()
+        self.store.record(self.connection, '192.168.50.0/24', [
+            observation('192.168.50.10'), observation('192.168.50.2')])
+        first = net.device_inventory(self.store.read())
+        self.assertEqual([r['ip'] for r in first], ['192.168.50.2', '192.168.50.10'])
+        self.assertTrue(all(r['observed_last_scan'] for r in first))
+        self.assertTrue(all(r['network_id'] == self.connection['id'] for r in first))
+        self.store.record(self.connection, '192.168.50.0/24', [observation('192.168.50.2')])
+        rows = net.device_inventory(self.store.read())
+        self.assertEqual([r['id'] for r in rows], [r['id'] for r in first])
+        self.assertEqual([r['observed_last_scan'] for r in rows], [True, False])
+        with patch.object(net, 'connections') as connected, patch.object(net, 'discover') as scan, \
+             contextlib.redirect_stdout(io.StringIO()) as output:
+            self.assertEqual(net.main(['appareils', '--state-dir', str(self.store.directory)]), 0)
+        self.assertEqual(json.loads(output.getvalue()), rows)
+        connected.assert_not_called()
+        scan.assert_not_called()
+
     def test_unknown_is_prompted_once_even_after_restart(self):
         other = connection()
         other['id'] = 'nouvelle-connexion-simulee'
