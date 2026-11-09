@@ -90,7 +90,7 @@ Saisir `scan complet` (ou `/scan CIBLE`) ouvre un dialogue déterministe, sans p
 
 | Module | Usage | Détails |
 | --- | --- | --- |
-| Banc d'essai | `python3 -m prevost bench --model NOM` (répéter `--model`, ou `--model tous`) : quatre missions fixes, vérifiées indépendamment du modèle, tableau OK/ÉCHEC. **Une seule confirmation globale**, puis le code du modèle est écrit et exécuté sans autre demande, dans un dossier temporaire jetable. | ci-dessous |
+| Banc d'essai | `python3 -m prevost bench --model NOM` (répéter `--model`, ou `--model tous`) : quatre missions fixes, vérifiées indépendamment du modèle, tableau OK/ÉCHEC avec la **raison de chaque échec**, une ligne de progression par mission. `--essais N` (1 à 10) rejoue chaque mission N fois dans un dossier neuf et donne un taux de réussite. **Une seule confirmation globale**, puis le code du modèle est écrit et exécuté sans autre demande, dans un dossier temporaire jetable. | ci-dessous |
 | Gardien | `python3 -m prevost.guardian diagnostic` : diagnostic déterministe du PC (disque, services échoués, ports, mises à jour), sans modèle ; `veille` pour une surveillance au premier plan | [GARDIEN.md](GARDIEN.md) |
 | Agent à outils | `python3 -m prevost.agent catalogue --project DOSSIER` | [OUTILS.md](OUTILS.md) |
 | Réseaux consentis | `python3 -m prevost.network veille` | [RESEAUX.md](RESEAUX.md) |
@@ -99,7 +99,7 @@ Saisir `scan complet` (ou `/scan CIBLE`) ouvre un dialogue déterministe, sans p
 | REA | Boutons et icône REA : PRÉVOST Python (`prevost-rea`), Codex gardé (`rea-prevost`) et Claude Code (`claude-rea`, service Anthropic, à installer) | [integration-rea/README.md](integration-rea/README.md) |
 | Samsung Recovery | Diagnostic USB et récupération officielle Google/Samsung, sans contournement ni effacement | [V20](samsung-recovery/README-V20.md), [V21](samsung-recovery/README-V21.md) |
 
-Le banc ne remplace pas vos modèles et ne touche à aucun projet existant. Prévus plus tard, non implémentés : un outil web en lecture seule et la description d'image.
+Le banc ne remplace pas vos modèles et ne touche à aucun projet existant. Un petit modèle local ne réussit pas toujours pareil d’un essai à l’autre : un seul essai ne prouve rien, comparez plutôt avec `--essais 3`. Le critère « contrôle interne du modèle » est la double vérification de PRÉVOST (sortie annoncée par le modèle) ; les autres sont vérifiés par le banc lui-même. Prévus plus tard, non implémentés : un outil web en lecture seule et la description d'image.
 
 ## Tests
 

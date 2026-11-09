@@ -222,3 +222,15 @@ Ajout du raccourci `claude-rea` et d'un troisième bouton dans l'interface REA (
 **Essayé pour de vrai** : l'installateur sur un faux `rea-gui` dans un dossier temporaire (le fichier compile, trois boutons) ; `claude-rea` lancé avec un faux `claude` dans le PATH (bon dossier de travail, options transmises, code 0) et sans aucun `claude` (message d'installation, code 127).
 
 **Non vérifié** : le vrai Claude Code (jamais lancé par ces tests), le clic sur le vrai bouton REA et l'ouverture du terminal sur Ubuntu, la longueur du bandeau (inchangé). Le `rea-gui` réel d'Alex n'a pas été lu depuis cette session.
+
+## Banc d’essai amélioré — 9 novembre 2026
+
+Premier passage réel du banc, lancé par Alex avec `qwen3:8b` et un seul essai : **15 critères sur 19**. `bonjour` et `premiers` réussis ; `calcul` 4/5 (le code et ses tests passent, seul le contrôle interne échoue) ; `taches` 2/5 (fonctionnement et tests unitaires en échec, même avec deux corrections). Le banc n’affichait alors ni la raison des échecs ni aucune progression, et un essai unique ne permet pas de conclure.
+
+**Changements** (`prevost/bench.py`) : chaque critère renvoie la raison de son échec (fichier absent, ligne de la faute de syntaxe, sortie obtenue et attendue, dernière ligne d’erreur des tests, bilan de PRÉVOST et dernier constat) ; `--essais N` (1 à 10) rejoue chaque mission dans un dossier et un état neufs et affiche un taux de réussite, avec les raisons identiques regroupées d’un essai à l’autre ; une ligne au début et à la fin de chaque mission, vidée aussitôt (une sortie redirigée n’attend plus la fin du banc) ; la confirmation unique annonce le nombre d’essais. `--model tous` existait déjà.
+
+Tests : `tests/test_bench.py` passe de 6 à 19 tests (raisons d’échec réelles avec un faux modèle qui se trompe de trois façons, fichiers absents signalés comme absents, exception d’une mission, essais multiples, modèle capricieux à 50 %, regroupement des raisons, dossier et état distincts par essai, validation de `--essais`, vidage de la sortie). Vérifié en cassant volontairement le code : raison supprimée, vidage retiré, état partagé entre essais et regroupement faussé sont tous détectés. Python 3.13 sous Linux : `python3 -B -m unittest discover -s tests` (209 tests réussis), `samsung-recovery` (114), `integration-rea` (45).
+
+**Essayé pour de vrai** : la commande `python3 -m prevost bench --model … --essais 2` contre un faux serveur Ollama local, sortie redirigée vers un fichier : les lignes de progression apparaissent pendant l’exécution (10 lignes après 5 s, 18 après 10 s), puis le tableau, le taux (28/38) et les raisons des échecs.
+
+**Non vérifié** : la nouvelle version n’a pas encore tourné avec un vrai modèle Ollama ; la durée d’un banc à plusieurs essais n’est pas mesurée (elle se multiplie par le nombre d’essais).
