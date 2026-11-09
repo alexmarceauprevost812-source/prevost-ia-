@@ -55,13 +55,19 @@ Android ne sont pas validées par cette adaptation.
 | Consultation des ID/IP/MAC enregistrés | `prevost reseau appareils`, aucune nouvelle sonde |
 | Scan Nmap sur cible explicitement autorisée | `pkg install nmap` en option ; dépend des droits Android et des options du profil |
 | Veille réseau automatique | Exige NetworkManager (`nmcli`) et les droits ARP ; indisponible dans une installation Termux standard |
-| Diagnostic gardien | `prevost gardien diagnostic` ; systemd absent et certaines informations réseau Android peuvent être inaccessibles |
+| Diagnostic gardien | `prevost gardien diagnostic` ; stockage du dossier personnel, systemd signalé indisponible sans exécution, ports selon les permissions Android |
 
 Le profil `/scan` reste `nmap -v -A` : son fonctionnement complet n’est pas garanti
 sans les privilèges requis. Aucun contournement, passage automatique en root ou
 remplacement silencieux du profil n’est ajouté. Les échecs restent signalés.
 Les outils Kali, REA et Podman ne sont proposés que s’ils sont réellement présents.
 Android peut arrêter le processus : aucune surveillance n’est garantie après cet arrêt.
+
+Le diagnostic reconnaît Android via Python ou l’environnement Termux (`TERMUX_VERSION`
+et `PREFIX`). Il mesure le système de fichiers du dossier personnel au lieu de `/`,
+qui peut être une partition système distincte. Le rapport précise le chemin mesuré ;
+il ne calcule pas l’espace du stockage partagé ni de toutes les partitions Android.
+Les mises à jour consultées restent celles du cache APT Termux, pas celles d’Android.
 
 ## Validation
 

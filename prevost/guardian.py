@@ -3,11 +3,13 @@ import argparse
 from datetime import datetime, timezone
 import hashlib
 import json
+import math
 import os
 from pathlib import Path
 import platform
 import shutil
 import subprocess
+import sys
 import time
 
 from .app import UI
@@ -22,6 +24,11 @@ CHECKS = {
 
 def now():
     return datetime.now(timezone.utc).isoformat()
+
+
+def is_termux():
+    return bool(hasattr(sys, 'getandroidapilevel') or
+                (os.environ.get('TERMUX_VERSION') and os.environ.get('PREFIX')))
 
 
 def probe(argv, timeout=8):
@@ -40,24 +47,35 @@ def probe(argv, timeout=8):
 
 def collect(run=probe, disk=shutil.disk_usage):
     checks = {}
+    termux = is_termux()
+    disk_path = str(Path.home()) if termux else '/'
     try:
-        usage = disk('/')
-        checks['disque'] = {'status': 'observe', 'source': 'statvfs via shutil.disk_usage(/)',
+        usage = disk(disk_path)
+        if usage.total <= 0 or not 0 <= usage.free <= usage.total:
+            raise ValueError('Mesure de disque incohérente.')
+        checks['disque'] = {'status': 'observe', 'source': f'statvfs via shutil.disk_usage({disk_path})',
+            'chemin': disk_path,
             'total': usage.total, 'libre': usage.free,
             'pourcentage_libre': round(usage.free / usage.total * 100, 1)}
-    except OSError as error:
-        checks['disque'] = {'status': 'indisponible', 'erreur': str(error)}
+    except (OSError, ValueError) as error:
+        checks['disque'] = {'status': 'indisponible', 'chemin': disk_path, 'erreur': str(error)}
     for name, argv in CHECKS.items():
-        checks[name] = run(argv)
+        if termux and name.startswith('services'):
+            checks[name] = {'status': 'indisponible', 'commande': argv, 'sortie': '',
+                            'erreur': 'Contrôle systemd non pris en charge dans Termux standard.'}
+        else:
+            checks[name] = run(argv)
     return {'date': now(), 'appareil': {'id': 'pc-local', 'nom': platform.node(),
-        'systeme': platform.system(), 'perimetre': 'PC courant seulement',
+        'systeme': 'Android / Termux' if termux else platform.system(),
+        'perimetre': 'Environnement Termux courant seulement' if termux else 'PC courant seulement',
         'autorise': ['diagnostic local en lecture seule', 'veille locale explicite'],
         'reseaux_voisins': 'non autorisés, non explorés'}, 'controles': checks,
         'limites': ['Vue du processus courant : un bac à sable peut masquer les informations de l’hôte.',
             'Ports TCP/UDP en écoute dans cet espace réseau ; aucun scan ni preuve d’exposition Internet.',
             'Services : unités échouées seulement, pas de vérification de tous les services attendus.',
             'Mises à jour : métadonnées APT existantes, sans rafraîchissement ni installation.',
-            'Disque : partition racine seulement ; aucun diagnostic SMART.',
+            ('Disque : système de fichiers du dossier personnel Termux seulement ; aucun diagnostic SMART.'
+             if termux else 'Disque : partition racine seulement ; aucun diagnostic SMART.'),
             'Aucune mesure de protection ni surveillance hors des exécutions explicites.']}
 
 
@@ -79,9 +97,9 @@ def recommendations(report):
                 'retour_arriere': 'Aucun changement système effectué ; aucune restauration nécessaire.'}
         if check['status'] != 'observe':
             item.update(nature='observe', constat='Collecte indisponible ; santé inconnue.',
-                recommandation='Relancer ce diagnostic depuis le terminal LexOS ; examiner l’erreur sans modifier les permissions automatiquement.')
+                recommandation='Examiner la limite ou l’erreur depuis le terminal de cet appareil ; ne pas modifier les permissions automatiquement.')
         elif name == 'disque' and check['pourcentage_libre'] < 10:
-            item.update(nature='observe', constat='Moins de 10 % d’espace libre sur /.',
+            item.update(nature='observe', constat=f"Moins de 10 % d’espace libre sur {check.get('chemin', '/')}.",
                 recommandation='Examiner les fichiers volumineux et préparer une sauvegarde avant toute suppression confirmée.')
         elif name.startswith('services') and check['sortie'].strip():
             item.update(nature='a_verifier', constat='Des unités sont signalées en échec par systemd.',
@@ -147,8 +165,8 @@ def main(argv=None):
     parser.add_argument('--cycles', type=int, default=1, help='Nombre de collectes ; 0 pour continuer jusqu’à Ctrl+C')
     parser.add_argument('--state-dir', default=str(Path.home()/'.local/share/prevost-ia-local/guardian'))
     args = parser.parse_args(argv)
-    if args.interval < 1 or args.cycles < 0:
-        parser.error('Intervalle >= 1 seconde et cycles >= 0 requis.')
+    if not math.isfinite(args.interval) or args.interval < 1 or args.cycles < 0:
+        parser.error('Intervalle fini >= 1 seconde et cycles >= 0 requis.')
     ui = UI()
     watch = Watch(args.state_dir) if args.mode == 'veille' else None
     cycle = 0

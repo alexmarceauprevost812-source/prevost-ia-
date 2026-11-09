@@ -69,6 +69,8 @@ Voir [VALIDATION.md](VALIDATION.md) pour distinguer les essais locaux réels, le
 
 ## Gardien numérique — diagnostic du PC LexOS
 
+Dans Termux, le gardien identifie son environnement Android, mesure le stockage du dossier personnel et indique les contrôles systemd comme indisponibles sans les exécuter. Les autres collectes restent soumises aux permissions Android ; voir [TERMUX.md](TERMUX.md).
+
 L’agent de programmation est conservé. Un module distinct fournit un diagnostic déterministe, sans Ollama et sans commandes proposées par un modèle :
 
 ```bash
