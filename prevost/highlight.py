@@ -1,7 +1,7 @@
 """Code Python coloré pour le terminal, sans dépendance (module standard tokenize).
 
-Palette du thème prevost-noir : fond noir, texte blanc, mots-clés rouges, chaînes vertes,
-nombres jaunes, fonctions bleu ciel, types mauves, commentaires gris. Le texte reste
+Palette néon du thème prevost-noir : fond noir, texte blanc, mots-clés rouge néon, chaînes
+vert néon, nombres jaune néon, fonctions bleu ciel néon, types violet néon, commentaires gris clair. Le texte reste
 identique caractère pour caractère ; seules les séquences de couleur s'ajoutent, et les
 caractères de contrôle du code (donnée non fiable) sont neutralisés.
 """
@@ -10,12 +10,12 @@ import keyword
 import tokenize
 
 WHITE = '40;97'
-KEYWORD = '1;38;2;255;85;85'
-STRING = '38;2;114;241;149'
-NUMBER = '38;2;255;212;71'
-FUNCTION = '38;2;135;206;235'
-TYPE = '38;2;199;146;234'
-COMMENT = '38;2;153;153;153'
+KEYWORD = '1;38;2;255;49;49'
+STRING = '38;2;57;255;20'
+NUMBER = '38;2;255;240;31'
+FUNCTION = '38;2;0;225;255'
+TYPE = '38;2;204;68;255'
+COMMENT = '38;2;160;160;160'
 CONSTANTS = ('True', 'False', 'None')
 FSTRING_PARTS = tuple(getattr(tokenize, name) for name in ('FSTRING_START', 'FSTRING_MIDDLE', 'FSTRING_END')
                       if hasattr(tokenize, name))

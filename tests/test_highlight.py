@@ -36,6 +36,15 @@ class HighlightTests(unittest.TestCase):
         self.assertIn('\x1b[40;97m', out)
         self.assertNotIn(paint(KEYWORD, 'self'), out)
 
+    def test_palette_is_neon_saturated_and_readable_on_black(self):
+        for name, code in (('KEYWORD', KEYWORD), ('STRING', STRING), ('NUMBER', NUMBER), ('FUNCTION', FUNCTION), ('TYPE', TYPE)):
+            red, green, blue = (int(v) for v in code.split('38;2;')[1].split(';'))
+            with self.subTest(name=name):
+                self.assertEqual(max(red, green, blue), 255)   # canal dominant à fond : couleur néon
+                self.assertLessEqual(min(red, green, blue), 70)  # peu de blanc mélangé : couleur saturée
+        # Les cinq couleurs restent distinctes entre elles et du commentaire gris.
+        self.assertEqual(len({KEYWORD, STRING, NUMBER, FUNCTION, TYPE, COMMENT}), 6)
+
     def test_text_is_preserved_exactly(self):
         self.assertEqual(strip(highlight_python(SAMPLE)), SAMPLE)
         self.assertEqual(highlight_python(''), '')
