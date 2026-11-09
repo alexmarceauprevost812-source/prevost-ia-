@@ -1,0 +1,12 @@
+#!/usr/bin/env bash
+set -euo pipefail
+if ! command -v ollama >/dev/null 2>&1; then
+    echo 'Ollama est introuvable dans le PATH.' >&2
+    exit 1
+fi
+if ! ollama show prevost:latest >/dev/null; then
+    echo 'Le modèle prevost:latest doit être disponible sur le serveur OLLAMA_HOST courant.' >&2
+    echo 'Aucun téléchargement ni création de modèle effectué.' >&2
+    exit 1
+fi
+exec ollama run prevost:latest "$@"
