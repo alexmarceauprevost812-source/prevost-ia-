@@ -155,3 +155,26 @@ prestataire officiel, la remise en service reste bloquée ; aucun déblocage gar
 Les [conclusions V20](samsung-recovery/rapports/v20/RAPPORT-V20.md), les sources et 90 tests
 Samsung sont inclus. Les rapports bruts du téléphone et les justificatifs personnels restent
 locaux. Voir la [validation de publication](samsung-recovery/VALIDATION-PUBLICATION.md).
+
+
+## Samsung V21 — diagnostic USB et rapports masqués
+
+Le [diagnostic V21](samsung-recovery/README-V21.md) complète V20 avec des mesures de
+restrictions du processus, de listener local, de permissions des nœuds USB et des états
+ADB/MTP. Il conserve les commandes antérieures et ajoute le choix 12 au menu Samsung.
+
+```bash
+cd samsung-recovery
+./prevost-samsung diagnostic-v21
+./prevost-samsung diagnostic-v21 --rapport
+```
+
+Chaque collecte crée un rapport privé et une archive `partage.zip` par liste blanche.
+Seule cette archive est destinée à être transmise ; la détection USB ne prouve aucun
+accès aux données. Aucun changement téléphone ou contournement FRP.
+
+[Résultats V21 et limites](samsung-recovery/rapports/v21/RAPPORT-V21.md) : 114 tests
+Samsung réussis, dont 24 nouveaux. Les 91 tests de l’application IA existante ont aussi
+été lancés : 89 réussis, deux lancements CLI bloqués par l’historique en lecture seule
+dans le sandbox. Cette version est préparée sur `feature/samsung-recovery-v21`, en
+pull request avant fusion. Aucun rapport privé ou justificatif personnel publié.
