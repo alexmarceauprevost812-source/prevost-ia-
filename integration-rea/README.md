@@ -1,9 +1,29 @@
-# Raccourci rea-prevost pour REA LexOS
+# rea-prevost — PRÉVOST dans Codex, depuis REA
 
-Ce paquet corrige le bouton local qui cherchait le nom de programme complet
-`ollama run prevost:latest`. Le bouton devient **REA-PRÉVOST** et lance le nouveau
-raccourci `rea-prevost`, lequel ouvre le modèle Ollama `prevost:latest`.
-Il n'enregistre pas un nouveau fournisseur de décompilation dans le serveur MCP REA.
+Le raccourci et le bouton s'appellent **rea-prevost**. Le bouton demande quel projet
+modifier, puis ouvre **Codex** avec le modèle local **prevost:latest**. Codex fournit
+la lecture de fichiers, les modifications et les commandes de tests ; les outils MCP
+REA déjà configurés restent disponibles selon la configuration et les capacités du modèle.
+La configuration utilisateur actuelle déclare REA ; aucun MCP n'est ajouté ou remplacé.
+
+Le lancement fournit des consignes de travail : examiner le projet et ses AGENTS.md,
+planifier les changements complexes, modifier de façon ciblée, exécuter les tests adaptés
+et distinguer les résultats réels des suppositions. Ce raccordement n'entraîne pas les
+poids du modèle et ne garantit pas un niveau de performance « professionnel ».
+
+## Thème demandé
+
+- Fond noir `#000000`, texte principal blanc `#FFFFFF`.
+- Bandeau PRÉVOST et boutons rouges.
+- Code coloré : mots-clés rouges, chaînes vertes, nombres jaunes, fonctions bleu ciel,
+  types mauves, commentaires gris.
+
+L'installateur prépare le thème de l'interface REA et le fichier Codex
+`prevost-noir.tmTheme`. Le raccourci sélectionne ce thème de coloration lorsqu'il est
+installé et envoie les couleurs de session blanc/noir aux terminaux compatibles OSC 10/11.
+Il ne change ni le thème système ni la configuration permanente de Codex.
+
+## Installation sur Ubuntu
 
 Depuis le terminal Ubuntu normal :
 
@@ -11,19 +31,64 @@ Depuis le terminal Ubuntu normal :
 python3 /home/ti-lex/Samsung-Android16/integration-rea/installer.py --apply
 ```
 
-Sur une copie GitHub, exécuter `python3 integration-rea/installer.py --apply`.
-Sans `--apply`, seul l'aperçu est affiché. L'installation sauvegarde les lanceurs
-existants dans `~/.local/bin/rea-prevost-sauvegarde-DATE` avant de les remplacer.
-Fermer puis rouvrir REA pour voir le bouton. La commande `rea-prevost` fonctionne
-également depuis le terminal si `~/.local/bin` est dans le PATH.
+Sur la copie GitHub : `python3 integration-rea/installer.py --apply`.
+Sans `--apply`, seul l'aperçu est affiché. L'installateur sauvegarde les fichiers existants
+avant remplacement et restaure ces fichiers si l'écriture échoue. Il refuse un bouton
+inconnu ou des fichiers ciblés qui sont des liens symboliques. Il ne touche pas aux autres
+lanceurs ou au contenu de config.toml.
 
-Aucun modèle téléchargé ou créé. Le modèle doit déjà être présent sur le serveur
-Ollama courant ; `OLLAMA_HOST` est conservé. La définition existante de l'utilisateur
-emploie qwen2.5-coder:7b ; sa présence sur le serveur n'a pas pu être vérifiée dans le
-sandbox, dont les sockets locales sont interdites. Le serveur n'est pas modifié.
-Le dossier `~/.local/bin` n'est pas accessible en écriture depuis cette session :
-l'installateur est préparé et testé, mais l'installation sur le bureau reste à exécuter.
+Fichiers ciblés : `~/.local/bin/rea-gui`, `~/.local/bin/rea-prevost` et
+`$CODEX_HOME/themes/prevost-noir.tmTheme` (par défaut `~/.codex/themes`).
+`--bin-dir` et `--theme-dir` permettent de préparer une installation dans d'autres dossiers.
+Fermer puis rouvrir REA ; cliquer **rea-prevost** et choisir le dossier du projet.
+XFCE Terminal est utilisé s'il est disponible ; Ptyxis puis x-terminal-emulator servent
+également de lanceurs pris en charge. Aucun terminal n'est installé automatiquement.
+
+```bash
+rea-prevost --project /chemin/du/projet --diagnostic
+rea-prevost --project /chemin/du/projet
+rea-prevost --project /chemin/du/projet 'Corrige les tests en échec et vérifie les changements'
+rea-prevost --project /chemin/du/projet --host http://127.0.0.1:11435
+```
+
+`--apercu` affiche la commande sans joindre Ollama ou lancer Codex. `--diagnostic` vérifie
+les prérequis et les capacités annoncées, sans génération de code. Un modèle absent,
+un serveur inaccessible ou des appels d'outils non annoncés interrompent le lancement ;
+aucun modèle n'est téléchargé, créé ou substitué. Le modèle demandé peut être indiqué
+par `--model`, sans changement du modèle par défaut. Les URL distantes ou avec identifiants
+sont refusées ; l'endpoint Ollama choisi correspond à celui du fournisseur Codex local.
+
+## Codex et vérification
+
+Le fournisseur `rea_prevost` est défini pour ce lancement uniquement, avec l'endpoint
+local `/v1` et le protocole Responses. La documentation officielle explique les
+[fournisseurs locaux et personnalisés](https://learn.chatgpt.com/docs/config-file/config-advanced)
+et les [options de Codex](https://learn.chatgpt.com/docs/cli/reference).
+Le [thème de coloration Codex](https://learn.chatgpt.com/docs/config-file/config-sample)
+est un fichier tmTheme utilisateur, sélectionné par un override de ce lancement.
+Le sandbox `workspace-write` et les validations `on-request` restent actifs.
+Aucun contournement de validation, lecture de mot de passe, cookie ou jeton n'est ajouté.
+
+L'API Responses doit être compatible avec le serveur et le modèle. L'annonce `tools`
+est un préalable, pas une preuve de fonctionnement agentique complet. La définition
+PRÉVOST trouvée localement est basée sur qwen2.5-coder:7b avec un contexte de 4096 ;
+cela ne prouve pas la configuration du modèle effectivement servi. La qualité réelle,
+l'usage des outils et le budget de contexte restent à évaluer dans une session réelle.
 
 ```bash
 python3 -m unittest discover -s integration-rea -p 'test_*.py' -v
 ```
+
+**16 tests réussis** : installation/sauvegarde/idempotence, migration du précédent
+raccourci de conversation, choix du projet avec espaces, terminal de repli, thème noir/blanc
+et code coloré, paramètres Codex, refus de serveurs distants, outils non annoncés,
+diagnostic sans exécution et séquences couleur.
+Codex CLI 0.167.0 et ses options ont été inspectés localement. L'aperçu de l'installation
+réelle est valide ; le code GUI préparé compile. Le test graphique sous Xvfb n'a pas pu
+joindre son affichage dans le sandbox. Le diagnostic réel Ollama échoue sur une socket
+interdite : aucune session de programmation avec le modèle n'est prétendue validée.
+
+Cette session ne peut pas écrire dans les dossiers d'installation ni joindre Ollama.
+Les fichiers sont prêts, testés et publiés sur `feature/rea-prevost-shortcut` ;
+l'activation sur le bureau reste à faire avec la commande d'installation ci-dessus.
+La branche Samsung V21 et sa pull request restent séparées ; aucun changement de main.
