@@ -149,6 +149,54 @@ class ShortcutTests(unittest.TestCase):
             self.assertEqual(gui.read_text(),first)
             compile(first,str(gui),'exec')
 
+    def test_rea_icon_launcher_and_desktop_copy(self):
+        with tempfile.TemporaryDirectory() as d,contextlib.redirect_stdout(io.StringIO()) as out,patch.object(installer,'trust') as trust:
+            root=Path(d)/'bin';share=Path(d)/'share';desk=Path(d)/'Bureau'
+            root.mkdir();desk.mkdir()
+            gui=root/'rea-gui';gui.write_text(installer.OLD+'\n')
+            installer.install(root,True,None,share,desk)
+            icon=share/'icons'/'rea.svg';launcher=share/'applications'/'rea-interface.desktop';copy=desk/'REA.desktop'
+            self.assertEqual(icon.read_text(encoding='utf-8'),Path(installer.__file__).with_name('rea.svg').read_text(encoding='utf-8'))
+            for entry in (launcher,copy):
+                text=entry.read_text(encoding='utf-8')
+                self.assertIn('Name=REA\n',text)
+                self.assertIn(f'Icon={icon}\n',text)
+                self.assertIn(f'Exec=python3 "{gui}"\n',text)
+                self.assertTrue(entry.stat().st_mode & 0o111)
+            trust.assert_called_once_with(copy)
+            self.assertIn('Icône REA',out.getvalue())
+            first=(icon.read_bytes(),launcher.read_bytes(),copy.read_bytes())
+            backup=installer.install(root,True,None,share,desk)
+            self.assertEqual((icon.read_bytes(),launcher.read_bytes(),copy.read_bytes()),first)
+            self.assertEqual((backup/'REA.desktop').read_bytes(),first[2])
+
+    def test_without_share_dir_no_desktop_files_are_written(self):
+        with tempfile.TemporaryDirectory() as d,contextlib.redirect_stdout(io.StringIO()),patch.object(installer,'trust') as trust:
+            root=Path(d);gui=root/'rea-gui';gui.write_text(installer.OLD+'\n')
+            installer.install(root,True)
+            trust.assert_not_called()
+            self.assertEqual(sorted(p.name for p in root.iterdir() if p.is_file()),['prevost-rea','rea-gui','rea-prevost'])
+
+    def test_desktop_symlink_refused_and_missing_desktop_dir_skipped(self):
+        with tempfile.TemporaryDirectory() as d,contextlib.redirect_stdout(io.StringIO()),patch.object(installer,'trust'):
+            root=Path(d)/'bin';share=Path(d)/'share';desk=Path(d)/'Bureau'
+            root.mkdir();desk.mkdir()
+            gui=root/'rea-gui';gui.write_text(installer.OLD+'\n')
+            (desk/'REA.desktop').symlink_to(root/'rea-gui')
+            with self.assertRaises(ValueError):installer.install(root,True,None,share,desk)
+            self.assertFalse((share/'icons'/'rea.svg').exists())
+            (desk/'REA.desktop').unlink()
+            installer.install(root,True,None,share,Path(d)/'inexistant')
+            self.assertTrue((share/'applications'/'rea-interface.desktop').exists())
+            self.assertFalse((Path(d)/'inexistant').exists())
+
+    def test_exec_quote_and_icon_file(self):
+        self.assertEqual(installer.exec_quote('/tmp/a b/50%/x"y'),'"/tmp/a b/50%%/x\\"y"')
+        import xml.dom.minidom
+        svg=xml.dom.minidom.parse(str(Path(installer.__file__).with_name('rea.svg')))
+        self.assertEqual(svg.documentElement.getAttribute('viewBox'),'0 0 256 256')
+        self.assertIn('REA',svg.documentElement.toxml())
+
     def test_theme_keeps_black_white_and_syntax_colors(self):
         import plistlib
         theme=plistlib.loads(Path(installer.__file__).with_name('prevost-noir.tmTheme').read_bytes())

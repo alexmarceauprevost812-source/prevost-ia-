@@ -4,6 +4,7 @@ import datetime
 import os
 from pathlib import Path
 import shutil
+import subprocess
 
 OLD = 'button("🟠 PRÉVOST IA", lambda: launch("ollama run prevost:latest"))'
 LEGACY = 'button("🟠 REA-PRÉVOST", lambda: launch("rea-prevost"))'
@@ -102,12 +103,59 @@ def apply_theme(source):
     return source
 
 
-def install(bin_dir, apply=False, theme_dir=None):
+ICON_NAME = 'rea.svg'
+LAUNCHER_NAME = 'rea-interface.desktop'   # menu des applications ; nom distinct de tout ancien REA.desktop
+DESKTOP_COPY = 'REA.desktop'              # copie sur le bureau
+
+
+def exec_quote(path):
+    """Chemin entre guillemets selon la spécification des fichiers .desktop."""
+    escaped = ''.join('\\' + c if c in '"`$\\' else c for c in str(path))
+    return '"' + escaped.replace('%', '%%') + '"'
+
+
+def desktop_entry(gui, icon):
+    """Raccourci nommé REA : ouvre l'interface REA (rea-gui), avec l'image REA."""
+    return ('[Desktop Entry]\nType=Application\nName=REA\n'
+            'Comment=REA avec PRÉVOST local (prevost-rea) ; Codex gardé (rea-prevost)\n'
+            f'Exec=python3 {exec_quote(gui)}\nIcon={icon}\nTerminal=false\nCategories=Development;\n')
+
+
+def trust(path):
+    """Autoriser le lancement du raccourci sur le bureau (GNOME) ; sans effet si gio manque."""
+    gio = shutil.which('gio')
+    if gio:
+        try:
+            subprocess.run([gio, 'set', str(path), 'metadata::trusted', 'true'], capture_output=True, timeout=10)
+        except (OSError, subprocess.SubprocessError):
+            pass
+
+
+def user_desktop():
+    """Dossier du bureau de l'utilisateur, ou None s'il n'est pas défini."""
+    try:
+        out = subprocess.run(['xdg-user-dir', 'DESKTOP'], capture_output=True, text=True, timeout=5).stdout.strip()
+    except (OSError, subprocess.SubprocessError):
+        return None
+    path = Path(out) if out else None
+    return path if path and path.is_dir() and path != Path.home() else None
+
+
+def install(bin_dir, apply=False, theme_dir=None, share_dir=None, desktop_dir=None):
     bin_dir = Path(bin_dir)
     theme_dir = Path(theme_dir) if theme_dir is not None else bin_dir/'themes'
     gui, shortcut, python_shortcut = bin_dir/'rea-gui', bin_dir/'rea-prevost', bin_dir/'prevost-rea'
     theme = theme_dir/'prevost-noir.tmTheme'
-    targets = (gui,shortcut,python_shortcut,theme)
+    extras = {}
+    if share_dir is not None:
+        share_dir = Path(share_dir)
+        icon = share_dir/'icons'/ICON_NAME
+        launcher = share_dir/'applications'/LAUNCHER_NAME
+        extras = {icon:(Path(__file__).with_name(ICON_NAME).read_text(encoding='utf-8'),0o644),
+                  launcher:(desktop_entry(gui,icon),0o755)}
+        if desktop_dir is not None and Path(desktop_dir).is_dir():
+            extras[Path(desktop_dir)/DESKTOP_COPY] = (desktop_entry(gui,icon),0o755)
+    targets = (gui,shortcut,python_shortcut,theme,*extras)
     if any(p.is_symlink() for p in targets):
         raise ValueError('Un des fichiers est un lien symbolique : installation automatique refusée.')
     original = gui.read_text(encoding='utf-8')
@@ -132,6 +180,8 @@ def install(bin_dir, apply=False, theme_dir=None):
     print('prevost-rea → choix du projet → PRÉVOST Python (plans vérifiés, corrections confirmées) → modèle au choix')
     print('Thème : fond noir, texte blanc, code coloré, accents rouges.')
     print('Fichiers :',gui,shortcut,python_shortcut,theme)
+    if extras:
+        print('Raccourci REA (image REA) :',*extras)
     if not apply:
         print('Aperçu seulement. Ajouter --apply pour installer avec sauvegarde.')
         return None
@@ -145,10 +195,13 @@ def install(bin_dir, apply=False, theme_dir=None):
     pending = []
     try:
         theme_dir.mkdir(parents=True,exist_ok=True)
+        for extra in extras:
+            extra.parent.mkdir(parents=True,exist_ok=True)
         for path,content,mode in ((gui,updated,gui.stat().st_mode & 0o777),
                                  (shortcut,source.read_text(),0o755),
                                  (python_shortcut,python_source,0o755),
-                                 (theme,Path(__file__).with_name('prevost-noir.tmTheme').read_text(),0o600)):
+                                 (theme,Path(__file__).with_name('prevost-noir.tmTheme').read_text(),0o600),
+                                 *((path,content,mode) for path,(content,mode) in extras.items())):
             temp = path.parent/('.'+path.name+'-'+stamp)
             with temp.open('x',encoding='utf-8') as stream:
                 stream.write(content)
@@ -156,6 +209,9 @@ def install(bin_dir, apply=False, theme_dir=None):
             pending.append((temp,path))
         for temp,path in pending:
             os.replace(temp,path)
+        for path in extras:
+            if path.name == DESKTOP_COPY:
+                trust(path)
     except OSError:
         for temp,_ in pending:
             if temp.exists(): temp.unlink()
@@ -166,6 +222,8 @@ def install(bin_dir, apply=False, theme_dir=None):
         raise
     print('Installé. Sauvegarde :',backup)
     print('Fermer puis rouvrir REA ; boutons rea-prevost (Codex) et prevost-rea (PRÉVOST Python). Commandes : rea-prevost, prevost-rea')
+    if extras:
+        print('Icône REA : menu des applications et bureau (clic droit > Autoriser le lancement si elle reste blanche).')
     return backup
 
 
@@ -173,10 +231,12 @@ def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--bin-dir',type=Path,default=Path.home()/'.local/bin')
     parser.add_argument('--theme-dir',type=Path,default=Path(os.environ.get('CODEX_HOME',str(Path.home()/'.codex')))/'themes')
+    parser.add_argument('--share-dir',type=Path,default=Path.home()/'.local/share')
+    parser.add_argument('--desktop-dir',type=Path,default=None)
     parser.add_argument('--apply',action='store_true')
     args = parser.parse_args(argv)
     try:
-        install(args.bin_dir,args.apply,args.theme_dir)
+        install(args.bin_dir,args.apply,args.theme_dir,args.share_dir,args.desktop_dir or user_desktop())
         return 0
     except (OSError,ValueError,SyntaxError) as exc:
         print('Installation non terminée :',exc)
