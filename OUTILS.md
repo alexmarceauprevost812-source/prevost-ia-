@@ -55,6 +55,11 @@ Tous les paramètres sont obligatoires et tout paramètre supplémentaire est re
 | `rea.doctor` | Aucun | Diagnostic CLI REA/Codex, sans réparation | 15 s | JSON valide, champ `healthy` booléen, code 0 ou 1 |
 | `rea.inspect_pyc` | `path` en `.pyc` | Inspection statique REA sans exécution cible | 20 s | Retour 0 et Evidence JSON REA identifiable |
 | `kali.inventory` | Aucun | Lecture des chemins d’exécutables dans le conteneur déjà actif | 10 s | Inventaire JSON réel des cinq noms attendus |
+| `project.list` | Aucun | Lecture du projet | 5 s, coopératif | Liste triée de 500 fichiers au plus, sans lien symbolique ni `.git` |
+| `project.search` | `text` littéral (200 octets max) | Lecture du projet | 8 s, coopératif | Parcours réel borné à 100 correspondances |
+| `python.tests` | Aucun | Exécution sensible : `unittest discover -s tests` | 120 s | Code 0 et ligne finale `OK` ; confirmation humaine |
+| `git.status` | Aucun | Lecture de l’état Git | 10 s | Code 0 et ligne de branche `##` ; aucune modification |
+| `kali.file` · `kali.strings` | `path` du projet | Fichier transmis sur stdin à `kali-lexos` déjà actif | 15 s | Code 0 et sortie non vide ; 1 Mo max, analyse passive |
 
 La disponibilité est sondée lors de la création du registre. Les outils locaux natifs Python déclarent leur implémentation ; leur résultat est vérifié à chaque appel. Un exécutable trouvé, un moteur REA configuré et une analyse réussie sont des faits distincts. Le contrat JSON indique l’environnement, les effets, les sondes, les délais, la méthode de vérification et la politique de délai.
 
@@ -95,3 +100,7 @@ Cette politique n’est pas un filtre réseau de l’hôte : un programme Python
 La commande `python3 -m prevost.network veille` et `/veille-reseau` utilisent maintenant le Nmap installé pour la seule découverte ARP de CIDR explicitement approuvés. Ce module est séparé du registre et du planificateur : le modèle ne peut pas créer d’autorisation ni démarrer un audit à partir d’une découverte. Les appareils restent `a_valider`. Voir [RESEAUX.md](RESEAUX.md) pour les autorisations, les commandes d’arrêt et de révocation et le stockage privé. Les contrats et confirmations des outils existants ne changent pas.
 
 Le dialogue manuel `/scan [cible]` (ou `scan complet`, avec tolérance pour `scam complet`) propose séparément `nmap -v -A CIBLE`. Il demande une cible exacte et une confirmation explicite du droit d’effectuer ce scan actif. Il n’est pas un outil du registre accessible au modèle et ne transforme pas l’accord d’inventaire en accord d’audit. Voir le [README](README.md#scan-nmap-demandé-par-lutilisateur).
+
+## Apprentissage
+
+À la fin de chaque mission, les appels échoués sont retenus (outil, statut, erreur courte, chemin) dans `lessons.jsonl` du dossier d’état privé (mode 600, 50 entrées au plus, sans doublons). Les 20 plus récents sont renvoyés au modèle comme données non fiables pour éviter de répéter la même erreur.
