@@ -176,3 +176,41 @@ Défauts relevés pendant ces essais, puis corrigés avec des tests (6 des 7 nou
 
 Limites confirmées : un contrôle réussi prouve seulement que la sortie correspond à l'annonce du modèle ; `qwen3:8b` peut écrire du code valable seulement en Python 3.12+ (guillemets doubles dans un f-string) sans que PRÉVOST le détecte ; ses explications en conversation peuvent contenir des détails faux (un exemple relevé sur `memory.py`).
 
+## Fiabilité de `/coder`, mémoire et banc d’essai — 9 novembre 2026
+
+> **Section venue de `main` avant la fusion.** Elle décrit la version de `main` de la boucle de correction, de la mémoire et de `/annuler`, **remplacée dans `totalité` par la version décrite plus haut** (la mémoire de `totalité` refuse les secrets au lieu de les masquer, et `/annuler` y liste des sauvegardes par fichier). Les résultats concernant le banc d’essai (`prevost/bench.py`) restent valables.
+
+
+Commandes lancées : `python3 -B -m unittest discover -s tests` (127 tests réussis) et, dans `samsung-recovery`, `python3 -B -m unittest discover -s tests` (114 tests réussis).
+
+### Testé pour de vrai
+
+- Exécution réelle de Python et de sous-processus dans des dossiers temporaires : échec d’un contrôle puis correction, échec d’une commande (code retour 3), expiration d’un délai, refus d’une confirmation, limite de deux essais, absence de progrès.
+- Compilation réelle (sans exécution) des `.py` proposés ; aucun fichier cassé n’est écrit.
+- Écritures réelles, sauvegardes en mode 600, restauration par `/annuler` après différence et confirmation, refus sans effet.
+- Mémoire : fichier réel en mode 600 dans un dossier 700, masquage de secrets, limite de 2 Ko, effacement avec confirmation exacte.
+- Banc d’essai : vérifications indépendantes exécutées réellement sur les fichiers produits ; confirmation unique et refus sans effet.
+
+### Simulé
+
+- **Toutes les réponses du modèle** (plans JSON, plans tronqués, corrections) viennent de faux clients en mémoire. Aucun essai avec un vrai Ollama : le comportement réel des modèles installés, leur taux de réussite et la qualité de leurs corrections ne sont pas validés.
+- Le tableau du banc a été produit uniquement avec un « bon » et un « mauvais » faux modèle ; il ne dit rien des modèles réels.
+- Linux seulement a été exécuté ; Termux n’a pas été relancé dans cette session.
+
+### Non fait
+
+- Outil web en lecture seule et description d’image (mission 7, prévue plus tard).
+
+## Fusion de `main` dans `totalité` — 9 novembre 2026
+
+**Gardé de `totalité`** (déjà éprouvé en vrai avec Ollama) : boucle de correction `--corrections`, mémoire `ProjectMemory` (refuse les secrets), `/annuler FICHIER`, plan lisible, tolérance d’un seul `\n` final dans la sortie annoncée, fichier identique = ni confirmation ni sauvegarde.
+
+**Repris de `main`** : banc d’essai `prevost bench` (`prevost/bench.py`), outils du registre `project.list`, `project.search`, `python.tests`, modèle par défaut mémorisé (`/modeles` le change), changements du Gardien, `premiers.py`.
+
+**Abandonné de `main`** (même fonction, deux versions : celle de `totalité` reste) : sa classe `Memory` (masquage au lieu de refus), son `undo`, sa boucle de reprise. Douze de ses tests, qui visaient ces fonctions, ont été retirés de `tests/test_app.py` ; les mêmes comportements sont couverts par `tests/test_coder_loop.py`, `tests/test_memory.py` et `tests/test_plan_and_undo.py`. **Un comportement de `main` n’est pas repris** : arrêt anticipé quand le modèle repropose exactement le même plan (« absence de progrès ») ; `totalité` utilise alors ses deux corrections.
+
+**Ajusté pour que les deux se marient** : le banc d’essai tourne maintenant en silence (aucun point de progression affiché) et un test le vérifie.
+
+Commandes lancées après la fusion, Python 3.13 sous Linux : `python3 -B -m unittest discover -s tests` (196 tests réussis), `python3 -B -m unittest test_premiers` (4), dans `samsung-recovery` (114) et dans `integration-rea` (32).
+
+**Non vérifié** : le banc d’essai n’a jamais tourné avec un vrai modèle Ollama (seulement un « bon » et un « mauvais » faux modèle) ; l’interface complète fusionnée n’a pas été relancée à la main sur le PC d’Alex.

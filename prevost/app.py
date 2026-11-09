@@ -254,6 +254,7 @@ class Project:
             backups.mkdir(exist_ok=True, mode=0o700)
             stamp = f'{time.time_ns()}.bak'
             (backups/stamp).write_text(previous, encoding='utf-8')
+            os.chmod(backups/stamp, 0o600)
             # Index séparé (hors du dossier des sauvegardes) : quelle sauvegarde appartient à quel fichier.
             with (self.state/'backups.jsonl').open('a', encoding='utf-8') as index:
                 os.chmod(self.state/'backups.jsonl', 0o600)
@@ -380,7 +381,8 @@ class Project:
         return result
 
 
-def choose(client, ui, requested=None):
+def choose(client, ui, requested=None, store=None, use_saved=True):
+    """Choisit un modèle installé ; `store` mémorise le choix comme modèle par défaut (fichier privé)."""
     models = client.models()
     if not models:
         raise ValueError('Aucun modèle installé retourné par Ollama.')
@@ -388,11 +390,20 @@ def choose(client, ui, requested=None):
         if requested not in models:
             raise ValueError('Modèle absent : ' + requested)
         return requested
+    if store is not None and use_saved and store.is_file():
+        saved = store.read_text(encoding='utf-8').strip()
+        if saved in models:
+            ui.show('Modèle par défaut : ' + saved + ' (/modeles pour en changer)')
+            return saved
+        ui.show('Modèle par défaut absent d’Ollama : ' + saved + ' ; choisir un modèle.')
     for i, name in enumerate(models, 1):
         ui.show(f'{i}. {name}')
     selection = int(ui.read('Numéro du modèle > '))
     if not 1 <= selection <= len(models):
         raise ValueError('Sélection invalide.')
+    if store is not None:
+        store.write_text(models[selection - 1] + '\n', encoding='utf-8')
+        os.chmod(store, 0o600)
     return models[selection - 1]
 
 
@@ -726,6 +737,10 @@ Toute autre saisie : conversation française en streaming ; elle ne lance pas d�
 
 
 def main(argv=None):
+    argv = sys.argv[1:] if argv is None else argv
+    if argv and argv[0] == 'bench':
+        from .bench import main as bench_main
+        return bench_main(argv[1:])
     parser = argparse.ArgumentParser(description='PRÉVOST — programmation locale avec Ollama')
     parser.add_argument('--project', default='.', help='Dossier de travail existant')
     parser.add_argument('--state-dir', help='Dossier des historiques et sauvegardes (privé, hors Git)')
@@ -756,7 +771,7 @@ def main(argv=None):
         if not client.local and not ui.confirm('Ollama est distant : confirmer la transmission du contexte à ' + client.address):
             return 1
         try:
-            model = choose(client, ui, args.model)
+            model = choose(client, ui, args.model, project.state/'default_model')
         except Exception as error:
             ui.show(f'Ollama non disponible : {error}. Outils manuels disponibles ; /modeles pour réessayer.')
             model = None
@@ -771,7 +786,7 @@ def main(argv=None):
                 if verb == '/aide':
                     ui.show(HELP)
                 elif verb == '/modeles':
-                    model = choose(client, ui)
+                    model = choose(client, ui, store=project.state/'default_model', use_saved=False)
                 elif verb == '/outils':
                     from .tools import Registry
                     ui.tool(json.dumps(Registry(project, ui.confirm).catalogue(), ensure_ascii=False, indent=2))

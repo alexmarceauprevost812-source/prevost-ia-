@@ -133,6 +133,24 @@ class AppTests(unittest.TestCase):
         self.assertEqual([r['status'] for r in records if r.get('event') == 'code_validation'],
                          ['double_verification_reussie', 'verification_incomplete', 'verification_incomplete'])
 
+    def test_coder_repairs_failing_code_from_real_error(self):
+        first = {'files': [{'path': 'calc.py', 'content': 'print(1 / 0)\n'}], 'commands': [],
+                 'checks': [{'path': 'calc.py', 'expected_stdout': '2\n'}]}
+        fixed = {'files': [{'path': 'calc.py', 'content': 'print(1 + 1)\n'}],
+                 'checks': [{'path': 'calc.py', 'expected_stdout': '2\n'}]}
+        prompts = []
+        class Model:
+            replies = iter([first, fixed])
+            def chat(self, model, messages, structured=False):
+                prompts.append(messages[-1]['content'])
+                yield json.dumps(next(self.replies))
+        ui = UI(); ui.confirm = lambda _: True
+        with contextlib.redirect_stdout(io.StringIO()):
+            validation = code_mission(Model(), 'simulé', self.project, 'Additionner', ui, 5)
+        self.assertEqual(validation['status'], 'double_verification_reussie')
+        self.assertEqual(self.project.read('calc.py'), 'print(1 + 1)\n')
+        self.assertIn('ZeroDivisionError', prompts[1])
+
     def test_coder_invalid_check_stops_before_writing(self):
         class Model:
             def chat(self, *args, **kwargs):
@@ -205,6 +223,21 @@ class AppTests(unittest.TestCase):
             self.assertEqual(choose(client, UI(), 'installed'), 'installed')
             with self.assertRaises(ValueError):
                 choose(client, UI(), 'invented')
+
+    def test_default_model_is_saved_and_reused(self):
+        client = Ollama('http://localhost:11434')
+        with tempfile.TemporaryDirectory() as folder, patch.object(client, 'models', return_value=['a', 'b']):
+            store = Path(folder)/'default_model'
+            ui = UI(); ui.show = lambda _: None; ui.read = lambda _: '2'
+            self.assertEqual(choose(client, ui, store=store), 'b')
+            self.assertEqual(store.stat().st_mode & 0o777, 0o600)
+            ui.read = lambda _: self.fail('aucune question attendue')
+            self.assertEqual(choose(client, ui, store=store), 'b')
+            ui.read = lambda _: '1'
+            self.assertEqual(choose(client, ui, store=store, use_saved=False), 'a')
+            self.assertEqual(choose(client, ui, store=store), 'a')
+            store.write_text('disparu\n')
+            self.assertEqual(choose(client, ui, store=store), 'a')
 
     def test_bad_plan_has_no_partial_write(self):
         class Model:

@@ -37,6 +37,73 @@ class ToolsTests(unittest.TestCase):
         self.assertTrue(any(row.get('event') == 'mission_end' for row in rows))
         self.assertEqual(self.registry.journal.stat().st_mode & 0o777, 0o600)
 
+    def test_project_list_and_search(self):
+        root = self.project.root
+        (root/'a.py').write_text('print("bonjour")\n')
+        (root/'sub').mkdir(); (root/'sub'/'b.txt').write_text('rien\nbonjour ici\n')
+        (root/'.git').mkdir(); (root/'.git'/'secret').write_text('bonjour')
+        (root/'lien').symlink_to(root/'a.py')
+        listing = self.registry.execute('project.list', {})
+        self.assertEqual(listing['status'], 'ok')
+        self.assertEqual(listing['evidence']['files'], ['a.py', 'sub/b.txt'])
+        found = self.registry.execute('project.search', {'text': 'bonjour'})
+        self.assertTrue(found['verified'])
+        self.assertEqual([(m['path'], m['line']) for m in found['evidence']['matches']], [('a.py', 1), ('sub/b.txt', 2)])
+        self.assertEqual(self.registry.execute('project.search', {'text': ''})['status'], 'error')
+        self.assertEqual(self.registry.execute('project.list', {'path': 'x'})['status'], 'error')
+
+    def test_python_tests_tool(self):
+        tests = self.project.root/'tests'; tests.mkdir()
+        (tests/'test_ok.py').write_text('import unittest\nclass T(unittest.TestCase):\n    def test_a(self):\n        self.assertTrue(True)\n')
+        result = self.registry.execute('python.tests', {})
+        self.assertEqual(result['status'], 'ok')
+        self.assertTrue(result['verified'])
+        (tests/'test_ko.py').write_text('import unittest\nclass K(unittest.TestCase):\n    def test_b(self):\n        self.assertTrue(False)\n')
+        failed = self.registry.execute('python.tests', {})
+        self.assertFalse(failed['verified'])
+        self.ui.confirm = lambda _: False
+        registry = Registry(self.project, self.ui.confirm, discover=False)
+        self.assertEqual(registry.execute('python.tests', {})['status'], 'rejected')
+
+    def test_git_status_tool(self):
+        import shutil, subprocess
+        if not shutil.which('git'):
+            self.skipTest('git absent')
+        subprocess.run(['git', 'init', '-q'], cwd=self.project.root, check=True)
+        (self.project.root/'x.txt').write_text('x')
+        registry = Registry(self.project, self.ui.confirm)
+        result = registry.execute('git.status', {})
+        self.assertTrue(result['verified'], result)
+        self.assertIn('?? x.txt', result['evidence']['stdout'])
+
+    def test_kali_file_and_strings_pass_file_on_stdin(self):
+        (self.project.root/'x.bin').write_bytes(b'\x00\x01hello-kali\x00')
+        ok = {'status': 'ok', 'returncode': 0, 'stdout': 'data\n', 'stderr': '', 'argv': []}
+        for tool in ('kali.file', 'kali.strings'):
+            self.registry.add(tool, 'test', {'path': {'type': 'string', 'path': True, 'max_bytes': 4096}}, [], 5, 'test')
+        with patch('prevost.tools.process', return_value=ok) as run, patch('prevost.tools.shutil.which', return_value='/usr/bin/podman'):
+            result = self.registry.execute('kali.strings', {'path': 'x.bin'})
+        self.assertTrue(result['verified'], result)
+        self.assertEqual(run.call_args.kwargs['input_data'], b'\x00\x01hello-kali\x00')
+        self.assertEqual(run.call_args.args[0][-5:], ['kali-lexos', 'strings', '-a', '-n', '6'])
+        self.assertEqual(self.registry.execute('kali.file', {'path': 'absent.bin'})['status'], 'error')
+
+    def test_failures_are_learned_and_deduplicated(self):
+        bad = {'path': 'absent.py', 'expected_stdout': 'x'}
+        for _ in range(2):
+            self.registry.execute('python.run', bad)
+        Agent(self.registry, self.ui).run('Essai', scripted([{'plan': 'Lire.', 'tool': 'project.read', 'parameters': {'path': 'absent.txt'}}]), 'reports/l.md')
+        lessons = self.registry.lessons()
+        self.assertEqual(len(lessons), 1)
+        self.assertEqual((lessons[0]['tool'], lessons[0]['status'], lessons[0]['path']), ('project.read', 'error', 'absent.txt'))
+        self.assertEqual(self.registry.lessons_file.stat().st_mode & 0o777, 0o600)
+        self.registry.learn(self.registry.execute('python.run', bad))
+        self.registry.learn({'tool': 'python.run', 'status': 'error', 'verified': False, 'parameters': bad, 'error': 'boom'})
+        self.registry.learn({'tool': 'python.run', 'status': 'error', 'verified': False, 'parameters': bad, 'error': 'boom'})
+        self.assertEqual(self.registry.lessons()[0]['count'], 2)
+        self.registry.learn({'tool': 'local.disk', 'status': 'ok', 'verified': True, 'parameters': {}})
+        self.assertNotIn('local.disk', [row['tool'] for row in self.registry.lessons()])
+
     def test_closed_schema_and_scope(self):
         for name, params in [('project.read', {'path': '../bad'}),
                              ('local.disk', {'target': '192.0.2.1'}),
