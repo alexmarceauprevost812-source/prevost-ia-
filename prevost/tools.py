@@ -1,10 +1,12 @@
 """Registre fermé et exécution vérifiable des outils locaux de PRÉVOST."""
+import ast
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 import hashlib
 import json
 import os
 from pathlib import Path
+import re
 import selectors
 import shutil
 import signal
@@ -24,6 +26,34 @@ def timestamp():
 def same_output(actual, expected):
     """Sortie identique au caractère près ; seul un « \\n » final oublié dans l’annonce est toléré."""
     return actual == expected or (not expected.endswith('\n') and actual == expected + '\n')
+
+
+def runs_unittest(source):
+    """Vrai si la source appelle unittest.main() (lecture de l'arbre syntaxique, pas du texte) :
+    unittest écrit alors son verdict sur stderr et laisse stdout vide."""
+    try:
+        tree = ast.parse(source)
+    except (SyntaxError, ValueError):
+        return False
+    bare = any(isinstance(node, ast.ImportFrom) and node.module == 'unittest'
+               and any(alias.name == 'main' and alias.asname is None for alias in node.names)
+               for node in ast.walk(tree))
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.Call):
+            continue
+        func = node.func
+        if isinstance(func, ast.Attribute) and func.attr == 'main' and isinstance(func.value, ast.Name) and func.value.id == 'unittest':
+            return True
+        if bare and isinstance(func, ast.Name) and func.id == 'main':
+            return True
+    return False
+
+
+def unittest_verdict(stderr):
+    """(nombre de tests, dernière ligne) lus sur la sortie d'erreur d'unittest ; (0, '') si absents."""
+    lines = [line for line in stderr.strip().splitlines() if line.strip()]
+    ran = re.findall(r'^Ran (\d+) tests? in ', stderr, re.MULTILINE)
+    return (int(ran[-1]) if ran else 0), (lines[-1] if lines else '')
 
 
 def process(argv, cwd=None, timeout=10, cancel=None, limit=LIMIT, input_data=None):
@@ -183,7 +213,9 @@ class Registry:
         self.add('python.run', 'Exécuter un fichier Python du projet, comparer sa sortie attendue',
             {'path': {**path, 'suffix': '.py'}, 'expected_stdout': {'type': 'string', 'max_bytes': LIMIT}},
             ['execution_code', 'peut_modifier_systeme', 'peut_acceder_reseau'], 15,
-            'Deux contrôles : syntaxe Python, puis retour 0 ET stdout attendu exact (un « \\n » final oublié est toléré) ; source inchangée après exécution', sensitive=True)
+            'Deux contrôles : syntaxe Python, puis retour 0 ET stdout attendu exact (un « \\n » final oublié est toléré) ; '
+            'pour un fichier qui appelle unittest.main(), le verdict unittest lu sur stderr (« Ran N tests », N >= 1, dernière ligne OK) remplace la comparaison de stdout ; '
+            'source inchangée après exécution', sensitive=True)
         self.add('project.list', 'Lister les fichiers ordinaires du projet (500 maximum)', {},
             ['lecture_projet'], 5, 'Liste réelle triée, sans lien symbolique ni métadonnées Git')
         self.add('project.search', 'Chercher un texte exact dans les fichiers texte du projet',
@@ -468,8 +500,15 @@ class Registry:
                 verified = evidence['status'] == 'ok'
                 if name == 'python.run':
                     matches = same_output(evidence['stdout'], params['expected_stdout'])
-                    verified = verified and matches
                     result['stdout_matches'] = matches
+                    if runs_unittest(source):
+                        # unittest écrit son verdict sur stderr : la sortie normale n'est pas comparée, le verdict l'est.
+                        count, last = unittest_verdict(evidence['stderr'])
+                        result['verification_mode'] = 'unittest'
+                        result['unittest'] = {'tests': count, 'verdict': last[:200]}
+                        verified = verified and count >= 1 and last.startswith('OK')
+                    else:
+                        verified = verified and matches
                     result['source_sha256'] = hashlib.sha256(source.encode()).hexdigest()
                     unchanged = self.project.read(params['path']) == source
                     verified = verified and unchanged
