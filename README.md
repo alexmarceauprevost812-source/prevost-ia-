@@ -33,7 +33,15 @@ python3 -m prevost --project /tmp/mon-projet --model NOM_INSTALLE --timeout 30
 - `/scan [cible]`, `scan complet` ou `scam complet` : demander une cible précise et proposer `nmap -v -A CIBLE` avec une autorisation distincte, même sans modèle disponible.
 - `/historique` : afficher les derniers échanges ; `/aide` et `/quitter`.
 
-Pour modifier un fichier avec Ollama, le lire d’abord avec `/lire`, puis utiliser `/coder` en décrivant la modification. Refuser un fichier interrompt la mission avant les commandes. Une commande refusée, expirée ou en échec interrompt la suite du plan. Une sortie réussie ne prouve que le résultat de cette commande ; le modèle ne vérifie pas automatiquement la conformité à la demande.
+Pour modifier un fichier avec Ollama, le lire d’abord avec `/lire`, puis utiliser `/coder` en décrivant la modification. Refuser un fichier interrompt la mission avant les commandes. Une commande refusée, expirée ou en échec interrompt la suite du plan. Une sortie réussie ne prouve que le résultat de cette commande.
+
+### Double vérification du code Python
+
+Dans `/coder` et `/agent`, le bilan du code exige deux contrôles complémentaires pour chaque fichier écrit : compilation de la syntaxe sans exécuter le programme, puis exécution confirmée avec code retour zéro et comparaison exacte à une sortie attendue. Une relecture ne remplace aucun de ces contrôles. L’empreinte du fichier doit encore correspondre au bilan ; une modification pendant l’exécution invalide le contrôle.
+
+`/coder` demande au modèle une liste `checks` de contrôles `{ "path": "programme.py", "expected_stdout": "sortie attendue\n" }`, exécutés après les écritures et commandes. Un ancien plan sans contrôles peut toujours écrire les fichiers confirmés, mais son bilan indique `verification_incomplete`. `/agent` refuse une fin de mission réussie après des écritures sans ces preuves ; toute nouvelle écriture impose de refaire les contrôles de tous les fichiers écrits pendant la mission. Les rapports présentent le détail et les identifiants de preuve.
+
+Le bilan `double_verification_reussie` porte sur ces deux critères seulement : il ne prouve pas tous les comportements, les dépendances ni la sécurité. Le modèle reçoit la consigne de prévoir des tests pertinents pour les cas normaux et les erreurs, mais leur qualité reste à examiner. Pour un module sans sortie, une exécution silencieuse ne teste pas ses fonctions ; prévoir aussi une suite de tests confirmée. La double vérification automatique actuelle concerne Python ; les autres langages restent signalés sans validation complète. Aucun test proposé par le modèle n’est exécuté sans confirmation.
 
 Sans Ollama, les commandes manuelles restent disponibles. Dans la conversation, `/coder` et `/agent`, l’interface emploie un fond noir, le nom et l’étiquette PRÉVOST rouges, les réponses bleu ciel RGB `#87CEEB` (aussi pendant le streaming), les noms d’outils et commandes jaunes RGB `#FFFF00`, l’invite « Vous > », la saisie et les résultats bruts blancs. Les couleurs sont réinitialisées après chaque affichage et lors des interruptions. Les séquences de contrôle provenant du modèle et des fichiers sont neutralisées. Les couleurs sont désactivées hors terminal ou avec `NO_COLOR=1`.
 

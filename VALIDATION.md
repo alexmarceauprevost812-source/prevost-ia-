@@ -118,3 +118,21 @@ Aucun cookie réel, profil de navigateur ou compte connecté n’est lu. Les sai
 Un test lance réellement la CLI PRÉVOST et son sous-processus, en remplaçant Nmap par un **exécutable factice** dans un dossier temporaire. Celui-ci affiche ses arguments et n’effectue aucun accès réseau. Les autres résultats Nmap sont simulés. Aucun scan réel supplémentaire n’a été lancé pendant ces tests.
 
 L’essai réel précédent de la commande exacte `nmap -v -A scanme.nmap.org` a produit `Failed to resolve "scanme.nmap.org"` et `0 IP addresses`, malgré un code retour 0. Il n’a donc analysé aucun hôte. Les résultats d’un audit réel, les droits de détection du système et les scripts sur le serveur de démonstration restent non validés dans cet environnement.
+
+## V2 — Termux, coffre étendu et double vérification
+
+**110 tests réussis** sous Linux avec `python3 -B -m unittest discover -s tests -q`.
+Les lanceurs sont installés et exécutés réellement dans des dossiers temporaires,
+y compris depuis un autre répertoire. Les tests du coffre utilisent uniquement des
+secrets fictifs ; le chiffrement et le déverrouillage sont réels, les saisies sont simulées.
+La détection Termux et les informations disque Android sont simulées. Le diagnostic
+JSON a aussi été lancé réellement sous Linux ; aucun essai sur téléphone ni installation
+de paquet Android n’est présenté comme validé.
+
+Les contrôles de syntaxe et les exécutions Python sont réels dans les tests : bonne
+sortie, mauvaise sortie, erreur de syntaxe sans exécution, fichier se modifiant lui-même,
+modification après les contrôles, contrôles manquants, nouvelle dépendance et seconde
+validation, fichier non Python et protection du code contre son remplacement par le
+rapport. Les tests `/coder` utilisent une génération de plan simulée, puis des écritures
+et exécutions réelles. Aucun nouveau résultat Ollama réel n’est revendiqué. Ces essais
+vérifient le mécanisme de validation, pas la qualité générale des programmes d’un modèle.

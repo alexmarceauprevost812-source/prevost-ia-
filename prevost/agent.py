@@ -9,6 +9,7 @@ import sys
 
 from .app import Ollama, Project, SYSTEM, UI, choose, safe
 from .tools import Registry, timestamp, process
+from .verification import assess_code
 
 POLICY = SYSTEM + '''
 Tu proposes UNE étape à la fois sous la forme JSON exacte :
@@ -20,10 +21,16 @@ Utilise seulement les outils disponibles du registre. Pour terminer, tool=finish
 et parameters={}. Une vérification échouée reste un échec. Aucun audit réseau,
 scan automatique, attaque ou élargissement de cible. Les autorisations se gèrent
 hors du modèle. Demande de l’aide si un besoin sort du registre.
+Pour coder : lire les fichiers concernés, prévoir les cas normaux et les erreurs,
+écrire des tests pertinents. Après la DERNIÈRE écriture, utiliser python.run pour
+chaque fichier Python écrit avec sa sortie attendue exacte. Cet outil vérifie la
+syntaxe puis l’exécution. Ne jamais appeler une simple relecture un test fonctionnel.
+Les fichiers non Python restent sans double validation automatique. Ne déclare
+jamais le code entièrement correct : présenter les critères testés et leurs limites.
 '''
 
 
-def report_text(mission, request, registry, results, termination):
+def report_text(mission, request, registry, results, termination, validation=None):
     lines = ['# Rapport PRÉVOST — enquête locale', '', f'Mission : {mission}',
              f'Date : {timestamp()}', '', '## Demande et périmètre', '', safe(request), '',
              '```json', json.dumps(registry.scope, ensure_ascii=False, indent=2), '```', '',
@@ -31,6 +38,9 @@ def report_text(mission, request, registry, results, termination):
              f'{sum(r["verified"] for r in results)} résultat(s) vérifié(s) sur {len(results)} appel(s).',
              'Une vérification réussie porte seulement sur le critère déclaré. Elle ne certifie ni la sécurité du PC ni toute la demande.', '',
              '## Preuves par appel', '']
+    if validation:
+        lines += ['## Double vérification du code', '', '```json',
+                  json.dumps(validation, ensure_ascii=False, indent=2), '```', '']
     for result in results:
         lines += [f'### {result["tool"]} — {result["status"]}', '',
                   f'Identifiant de preuve : {result["id"]}',
@@ -62,6 +72,13 @@ class Agent:
         self.registry, self.ui = registry, ui
         self.max_steps, self.max_seconds = max_steps, max_seconds
 
+    def code_validation(self, results):
+        writes = [index for index, result in enumerate(results)
+                  if result['tool'] == 'project.write' and result['status'] == 'ok']
+        return assess_code(self.registry.project,
+                           [results[index]['parameters']['path'] for index in writes],
+                           results[writes[-1] + 1:] if writes else [])
+
     def run(self, request, planner, report_path=None):
         if not isinstance(request, str) or not request.strip() or len(request) > 10000:
             raise ValueError('Demande non vide limitée à 10 000 caractères.')
@@ -91,6 +108,8 @@ class Agent:
                     if proposal['parameters']:
                         raise ValueError('finish ne prend aucun paramètre.')
                     termination = 'plan_termine' if results else 'aucune_execution'
+                    if self.code_validation(results)['status'] == 'verification_incomplete':
+                        termination = 'verification_incomplete'
                     break
                 signature = json.dumps([proposal['tool'], proposal['parameters']], sort_keys=True)
                 if signature in attempted:
@@ -101,6 +120,10 @@ class Agent:
                 result = self.registry.execute(proposal['tool'], proposal['parameters'],
                     remaining=self.max_seconds - (time.monotonic() - started))
                 results.append(result)
+                if result['tool'] == 'project.write' and result['status'] == 'ok':
+                    # Une nouvelle version autorise de refaire les mêmes contrôles,
+                    # sans autoriser la répétition infinie sur une version inchangée.
+                    attempted = {item for item in attempted if json.loads(item)[0] != 'python.run'}
                 self.ui.tool(f"Résultat : {result['status']} ; vérifié : {result['verified']}")
                 # Lire la vraie sortie, jamais une reformulation inventée du modèle.
                 self.ui.raw(json.dumps(result, ensure_ascii=False, indent=2))
@@ -117,8 +140,12 @@ class Agent:
                 termination = 'annulation' if self.registry.cancel.is_set() else 'erreur_planification'
                 break
         report_path = report_path or f'reports/mission-{mission}.md'
+        validation = self.code_validation(results)
+        if validation['files']:
+            self.ui.show('Double vérification du code : ' + validation['status'])
+            self.ui.raw(json.dumps(validation, ensure_ascii=False, indent=2))
         # Un rapport est toujours sauvegardé dans l’état privé, même si l’export est refusé.
-        text = report_text(mission, request, self.registry, results, termination)
+        text = report_text(mission, request, self.registry, results, termination, validation)
         private = self.registry.project.state/f'mission-{mission}.md'
         private.write_text(text, encoding='utf-8')
         private.chmod(0o600)
@@ -127,6 +154,9 @@ class Agent:
             self.ui.show('Rapport trop volumineux pour l’export projet ; preuve complète conservée dans le dossier privé.')
         elif not self.registry.cancel.is_set():
             try:
+                target = self.registry.project.path(report_path)
+                if any(target == self.registry.project.path(row['path']) for row in validation['files']):
+                    raise ValueError('Le rapport ne peut pas remplacer un fichier du code à vérifier.')
                 exported = self.registry.project.write(report_path, text, self.registry.confirm)
             except KeyboardInterrupt:
                 self.registry.cancel.set()
@@ -135,8 +165,9 @@ class Agent:
                 self.ui.show('Export impossible ; rapport privé conservé : ' + str(error))
         self.registry.log({'event': 'mission_end', 'mission': mission, 'date': timestamp(),
             'termination': termination, 'private_report': str(private),
+            'code_validation': validation,
             'exported': report_path if exported else None, 'results': [r['id'] for r in results]})
-        return {'mission': mission, 'termination': termination, 'results': results,
+        return {'mission': mission, 'termination': termination, 'results': results, 'code_validation': validation,
                 'report': str(self.registry.project.path(report_path)) if exported else str(private), 'exported': exported}
 
 

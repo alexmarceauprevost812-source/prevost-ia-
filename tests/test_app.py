@@ -114,6 +114,34 @@ class AppTests(unittest.TestCase):
         self.assertFalse(result['timeout'])
         self.assertEqual(len(Project(self.root, self.state).conversation()), 2)
 
+    def test_coder_double_verification_real_success_failure_and_missing(self):
+        ui = UI()
+        ui.confirm = lambda _: True
+        for expected, status in [('bonjour\n', 'double_verification_reussie'),
+                                 ('incorrect\n', 'verification_incomplete'),
+                                 (None, 'verification_incomplete')]:
+            plan = {'files': [{'path': 'verified.py', 'content': 'print("bonjour")\n'}],
+                    'commands': [], 'checks': ([] if expected is None else [
+                        {'path': 'verified.py', 'expected_stdout': expected}])}
+            class Model:
+                def chat(self, *args, **kwargs):
+                    yield json.dumps(plan)
+            with self.subTest(expected=expected), contextlib.redirect_stdout(io.StringIO()):
+                validation = code_mission(Model(), 'simulé', self.project, 'Saluer', ui, 5)
+            self.assertEqual(validation['status'], status)
+        records = [json.loads(line) for line in self.project.record.read_text().splitlines()]
+        self.assertEqual([r['status'] for r in records if r.get('event') == 'code_validation'],
+                         ['double_verification_reussie', 'verification_incomplete', 'verification_incomplete'])
+
+    def test_coder_invalid_check_stops_before_writing(self):
+        class Model:
+            def chat(self, *args, **kwargs):
+                yield json.dumps({'files': [{'path': 'not_written.py', 'content': 'pass\n'}],
+                                  'checks': [{'path': '../outside.py', 'expected_stdout': ''}]})
+        with contextlib.redirect_stdout(io.StringIO()), self.assertRaises(ValueError):
+            code_mission(Model(), 'simulé', self.project, 'Écrire', UI(), 5)
+        self.assertFalse((self.root/'not_written.py').exists())
+
     def test_refused_command_does_not_execute(self):
         result = self.project.run([sys.executable, '-c', 'open("bad", "w").close()'], 2, lambda _: False)
         self.assertTrue(result['cancelled'])
