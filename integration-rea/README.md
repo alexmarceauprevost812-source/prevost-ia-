@@ -43,13 +43,12 @@ Il ne change ni le thème système ni la configuration permanente de Codex.
 
 ## Installation sur Ubuntu
 
-Depuis le terminal Ubuntu normal :
+Depuis la racine du dépôt, dans un terminal Ubuntu normal :
 
 ```bash
-python3 /home/ti-lex/Samsung-Android16/integration-rea/installer.py --apply
+python3 integration-rea/installer.py --apply
 ```
 
-Sur la copie GitHub : `python3 integration-rea/installer.py --apply`.
 Sans `--apply`, seul l'aperçu est affiché. L'installateur sauvegarde les fichiers existants
 avant remplacement et restaure ces fichiers si l'écriture échoue. Il refuse un bouton
 inconnu ou des fichiers ciblés qui sont des liens symboliques. Il ne touche pas aux autres
