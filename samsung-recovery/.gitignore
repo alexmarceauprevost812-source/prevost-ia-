@@ -7,3 +7,4 @@ rapports/**/*.jsonl
 rapports/**/recovery-*.txt
 rapports/v19/dossier-*/
 rapports/v20/recuperation-*/
+rapports/v21/diagnostic-*/
