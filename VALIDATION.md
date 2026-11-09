@@ -144,3 +144,12 @@ Branche `totalité` (fusion de `main`, v2, Samsung V16–V21 et rea-prevost) : *
 Les nouveaux tests couvrent : JSON tronqué (une reprise, puis arrêt sans écriture), fichier Python qui ne compile pas, JSON invalide, demande « lance/teste » sans commande ni contrôle, contrôle ou commande visant un fichier inconnu, chemin dangereux non retenté ; correction après contrôle ou commande en échec avec preuve transmise, plafond de corrections (0, 1, 2), arrêt sur fichier refusé, commande ou contrôle non confirmé, délai dépassé ; mémoire (étiquette « non fiable », plafond de 2 Ko, enregistrement de toutes les issues, aucun code, sortie ni secret conservé, fichier privé en mode 600 hors du projet, fichier corrompu, `/memoire` et `--corrections` en ligne de commande).
 
 Limite : la génération du modèle est **simulée** dans ces tests ; les écritures, compilations, sous-processus et contrôles sont réels. Aucun essai Ollama réel de la boucle de correction n’est revendiqué : il reste à mesurer avec `prevost-codex:v4`, `qwen2.5-coder:7b` et `qwen3:8b` sur des missions réelles.
+
+## Essais réels sur Ubuntu (Ollama local) — 9 novembre 2026
+
+Essais faits par l'utilisateur, sortie collée dans la conversation. Résultats **réels mais en très petit nombre** :
+
+- `qwen3:8b` via `/coder` : `bonjour.py` écrit, lancé et vérifié (le premier contrôle a expiré parce que le temps de confirmation humaine comptait dans le délai : bogue corrigé, test de régression ajouté).
+- `qwen3:8b` via `/coder`, mission `taches.py` : premier plan avec deux contrôles contradictoires sur le même fichier (refusé désormais avant écriture) ; second essai : le contrôle a échoué parce que la sortie attendue par le modèle (« Erreur: Tâche vide. ») différait de la sortie réelle (« Erreur: Tâche vide ») ; **une correction** (un point ajouté au message d'erreur) a donné `double_verification_reussie` en 2 essais, chaque étape confirmée.
+- Limite : ce bilan prouve que le programme produit la sortie que le modèle avait annoncée, pas que le programme fait ce que l'utilisateur voulait. Ici, `terminer` supprime la tâche au lieu de la marquer terminée, et la correction a modifié le code pour coller à l'attente du modèle plutôt que l'inverse.
+- Codex via `rea-prevost` : `prevost:latest` écrit un faux appel d'outil en texte ; `qwen3:8b` répond avec du code sans créer ni lancer de fichier. Le raccordement démarre mais n'est pas validé pour programmer avec ces modèles ; cause non établie. D'où le bouton `prevost-ia`.

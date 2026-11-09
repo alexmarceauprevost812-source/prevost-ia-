@@ -1,0 +1,43 @@
+#!/usr/bin/env python3
+"""Lancer PRÉVOST (Python : plans vérifiés, corrections confirmées, mémoire) depuis REA."""
+from pathlib import Path
+import os
+import runpy
+import sys
+import traceback
+
+DEPOT = None  # remplacé par l'installateur
+
+
+def build_args(args, environ):
+    """PREVOST_MODEL choisit le modèle seulement si --model n'est pas déjà donné ; sinon PRÉVOST le demande."""
+    args = list(args)
+    model = environ.get('PREVOST_MODEL')
+    if model and not any(a == '--model' or a.startswith('--model=') for a in args):
+        args += ['--model', model]
+    return args
+
+
+def main():
+    depot = DEPOT or str(Path(__file__).resolve().parents[1])
+    sys.path.insert(0, depot)
+    sys.argv = ['prevost', *build_args(sys.argv[1:], os.environ)]
+    code = 0
+    try:
+        runpy.run_module('prevost', run_name='__main__')
+    except SystemExit as stop:
+        code = stop.code if isinstance(stop.code, int) else (0 if stop.code is None else 1)
+    except Exception:
+        traceback.print_exc()
+        code = 1
+    if code:
+        # Garder la fenêtre ouverte pour lire l'erreur.
+        try:
+            input('PRÉVOST s’est arrêté avec une erreur. Entrée pour fermer ce terminal > ')
+        except EOFError:
+            pass
+    return code
+
+
+if __name__ == '__main__':
+    raise SystemExit(main())
