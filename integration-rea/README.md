@@ -25,6 +25,7 @@ L'installateur ajoute ce bouton **à côté** du bouton rea-prevost (Codex), san
 niveau un `rea-gui` déjà installé. Il écrit `~/.local/bin/prevost-rea`, lié au dossier de ce dépôt :
 si le dépôt est déplacé ou si une autre branche est activée, relancer `installer.py --apply`.
 Commande : `prevost-rea --project /chemin/du/projet`.
+Le titre de la fenêtre REA devient « PRÉVOST — REA » et l'en-tête indique « REA avec PRÉVOST local (prevost-rea)  |  Codex gardé (rea-prevost) » ; les boutons CODEX et rea-prevost (Codex) restent en place, aucun bouton n'est renommé. Un `rea-gui` déjà installé reçoit ce nouveau titre au prochain `installer.py --apply`.
 Un `rea-gui` qui avait reçu le bouton sous son ancien nom `prevost-ia` est migré ; un ancien fichier `~/.local/bin/prevost-ia` éventuel n'est pas supprimé et peut être effacé à la main.
 
 ## Thème demandé
@@ -95,7 +96,7 @@ l'usage des outils et le budget de contexte restent à évaluer dans une session
 python3 -m unittest discover -s integration-rea -p 'test_*.py' -v
 ```
 
-**26 tests réussis** (10 pour le bouton prevost-rea : installation unique et idempotente, mise à niveau d'un `rea-gui` déjà modifié pour Codex, migration de l'ancien nom `prevost-ia`, refus d'un fichier inconnu ou d'un lien symbolique, projet avec espaces, annulation, modèle par défaut, exécution réelle depuis un autre dossier, terminal gardé ouvert en cas d'erreur) : installation/sauvegarde/idempotence, migration du précédent
+**28 tests réussis** (12 pour le bouton prevost-rea et le titre de la fenêtre : installation unique et idempotente, mise à niveau d'un `rea-gui` déjà modifié pour Codex, migration de l'ancien nom `prevost-ia`, refus d'un fichier inconnu ou d'un lien symbolique, projet avec espaces, annulation, modèle par défaut, exécution réelle depuis un autre dossier, terminal gardé ouvert en cas d'erreur) : installation/sauvegarde/idempotence, migration du précédent
 raccourci de conversation, choix du projet avec espaces, terminal de repli, thème noir/blanc
 et code coloré, paramètres Codex, refus de serveurs distants, outils non annoncés,
 diagnostic sans exécution et séquences couleur.

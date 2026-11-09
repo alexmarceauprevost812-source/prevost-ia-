@@ -125,6 +125,30 @@ class ShortcutTests(unittest.TestCase):
         self.assertEqual(result.returncode,0)
         self.assertIn('--project',result.stdout)
 
+    def test_title_says_rea_with_local_prevost_and_keeps_codex(self):
+        fresh='root.title("REA — LEXOS PRO")\nLabel(header, text="   LEXOS PRO  |  AGENT IA LOCAL")\n'
+        updated=installer.apply_theme(fresh)
+        self.assertIn(installer.WINDOW_TITLE,updated)
+        self.assertIn('REA avec PRÉVOST local',updated)
+        self.assertIn('Codex gardé',updated)
+        self.assertNotIn('CODEX LOCAL',updated)
+        self.assertEqual(installer.apply_theme(updated),updated)
+
+    def test_install_updates_title_of_already_themed_gui_once(self):
+        old_themed='root.title("PRÉVOST — rea-prevost")\nLabel(header, text="   rea-prevost  |  CODEX LOCAL")\n'
+        with tempfile.TemporaryDirectory() as d,contextlib.redirect_stdout(io.StringIO()):
+            root=Path(d);gui=root/'rea-gui';gui.write_text(installer.OLD+'\n'+old_themed)
+            installer.install(root,True)
+            first=gui.read_text()
+            self.assertIn(installer.WINDOW_TITLE,first)
+            self.assertIn('REA avec PRÉVOST local',first)
+            self.assertNotIn('CODEX LOCAL',first)
+            self.assertIn('button("rea-prevost", launch_rea_prevost)',first)
+            self.assertIn('button("prevost-rea", launch_prevost_rea)',first)
+            installer.install(root,True)
+            self.assertEqual(gui.read_text(),first)
+            compile(first,str(gui),'exec')
+
     def test_theme_keeps_black_white_and_syntax_colors(self):
         import plistlib
         theme=plistlib.loads(Path(installer.__file__).with_name('prevost-noir.tmTheme').read_bytes())

@@ -74,15 +74,22 @@ def python_shortcut_source():
     return source.replace(DEPOT_LINE, 'DEPOT = ' + repr(str(Path(__file__).resolve().parents[1])))
 
 
+WINDOW_TITLE = 'root.title("PRÉVOST — REA")'
+HEADER_TEXT = 'header, text="   REA avec PRÉVOST local (prevost-rea)  |  Codex gardé (rea-prevost)"'
+
+
 def apply_theme(source):
     replacements = {
         'BG = "#050505"': 'BG = "#000000"',
         'PANEL = "#101010"': 'PANEL = "#000000"',
         'ORANGE = "#FF7900"': 'ORANGE = "#E00000"',
         'WHITE = "#F5F5F5"': 'WHITE = "#FFFFFF"',
-        'root.title("REA — LEXOS PRO")': 'root.title("PRÉVOST — rea-prevost")',
+        'root.title("REA — LEXOS PRO")': WINDOW_TITLE,
+        # Titres posés par une version précédente de l’installateur : mis à jour.
+        'root.title("PRÉVOST — rea-prevost")': WINDOW_TITLE,
         'header, text="REA"': 'header, text="PRÉVOST"',
-        'header, text="   LEXOS PRO  |  AGENT IA LOCAL"': 'header, text="   rea-prevost  |  CODEX LOCAL"',
+        'header, text="   LEXOS PRO  |  AGENT IA LOCAL"': HEADER_TEXT,
+        'header, text="   rea-prevost  |  CODEX LOCAL"': HEADER_TEXT,
         'bg=ORANGE, fg="#000000"': 'bg=ORANGE, fg=WHITE',
         'activebackground="#FFAA33"': 'activebackground="#FF3030"',
         'activeforeground="#000000"': 'activeforeground=WHITE',
