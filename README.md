@@ -96,7 +96,7 @@ Saisir `scan complet` (ou `/scan CIBLE`) ouvre un dialogue déterministe, sans p
 | Réseaux consentis | `python3 -m prevost.network veille` | [RESEAUX.md](RESEAUX.md) |
 | Coffre | `prevost coffre creer`, `ajouter`… (chiffré par phrase de passe ; valeurs jamais envoyées au modèle) | [COFFRE.md](COFFRE.md), `pip install -r requirements-vault.txt` |
 | Android | PRÉVOST dans Termux | [TERMUX.md](TERMUX.md) |
-| REA | Boutons et icône REA : PRÉVOST Python (`prevost-rea`) et Codex gardé (`rea-prevost`) | [integration-rea/README.md](integration-rea/README.md) |
+| REA | Boutons et icône REA : PRÉVOST Python (`prevost-rea`), Codex gardé (`rea-prevost`) et Claude Code (`claude-rea`, service Anthropic, à installer) | [integration-rea/README.md](integration-rea/README.md) |
 | Samsung Recovery | Diagnostic USB et récupération officielle Google/Samsung, sans contournement ni effacement | [V20](samsung-recovery/README-V20.md), [V21](samsung-recovery/README-V21.md) |
 
 Le banc ne remplace pas vos modèles et ne touche à aucun projet existant. Prévus plus tard, non implémentés : un outil web en lecture seule et la description d'image.

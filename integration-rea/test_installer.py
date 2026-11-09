@@ -22,6 +22,11 @@ python_spec=importlib.util.spec_from_loader(python_loader.name,python_loader)
 python_script=importlib.util.module_from_spec(python_spec)
 python_loader.exec_module(python_script)
 
+claude_loader=importlib.machinery.SourceFileLoader('claude_rea_script',str(Path(installer.__file__).with_name('claude-rea')))
+claude_spec=importlib.util.spec_from_loader(claude_loader.name,claude_loader)
+claude_script=importlib.util.module_from_spec(claude_spec)
+claude_loader.exec_module(claude_script)
+
 
 class ShortcutTests(unittest.TestCase):
     def test_preview_backup_and_idempotence(self):
@@ -175,7 +180,7 @@ class ShortcutTests(unittest.TestCase):
             root=Path(d);gui=root/'rea-gui';gui.write_text(installer.OLD+'\n')
             installer.install(root,True)
             trust.assert_not_called()
-            self.assertEqual(sorted(p.name for p in root.iterdir() if p.is_file()),['prevost-rea','rea-gui','rea-prevost'])
+            self.assertEqual(sorted(p.name for p in root.iterdir() if p.is_file()),['claude-rea','prevost-rea','rea-gui','rea-prevost'])
 
     def test_desktop_symlink_refused_and_missing_desktop_dir_skipped(self):
         with tempfile.TemporaryDirectory() as d,contextlib.redirect_stdout(io.StringIO()),patch.object(installer,'trust'):
@@ -342,3 +347,114 @@ class PythonButtonTests(unittest.TestCase):
             self.assertEqual(result.returncode,1)
             self.assertIn('Erreur',result.stdout)
             self.assertIn('Entrée pour fermer',result.stdout)
+
+
+class ClaudeButtonTests(unittest.TestCase):
+    def install_in(self,root,content):
+        (root/'rea-gui').write_text(content)
+        with contextlib.redirect_stdout(io.StringIO()):
+            return installer.install(root,True)
+
+    def test_third_button_installed_once_after_the_two_others(self):
+        with tempfile.TemporaryDirectory() as d:
+            root=Path(d);self.install_in(root,installer.OLD+'\n')
+            gui=(root/'rea-gui').read_text()
+            compile(gui,'rea-gui','exec')
+            self.assertEqual((gui.count(installer.NEW),gui.count(installer.PYTHON_BLOCK),gui.count(installer.CLAUDE_BLOCK)),(1,1,1))
+            self.assertLess(gui.index('button("rea-prevost"'),gui.index('button("prevost-rea"'))
+            self.assertLess(gui.index('button("prevost-rea"'),gui.index('button("claude-rea", launch_claude_rea)'))
+            with contextlib.redirect_stdout(io.StringIO()):
+                installer.install(root,True)
+            again=(root/'rea-gui').read_text()
+            self.assertEqual(again,gui)
+
+    def test_gui_already_installed_with_two_buttons_gets_only_the_third(self):
+        with tempfile.TemporaryDirectory() as d:
+            root=Path(d);before=installer.NEW+'\n\n'+installer.PYTHON_BLOCK+'\n'
+            backup=self.install_in(root,before)
+            gui=(root/'rea-gui').read_text()
+            self.assertEqual((gui.count(installer.NEW),gui.count(installer.PYTHON_BLOCK),gui.count(installer.CLAUDE_BLOCK)),(1,1,1))
+            self.assertEqual((backup/'rea-gui').read_text(),before)
+            compile(gui,'rea-gui','exec')
+
+    def test_claude_block_is_a_copy_of_the_prevost_button_without_prevost(self):
+        self.assertNotIn('prevost',installer.CLAUDE_BLOCK.lower())
+        self.assertIn('Path(__file__).with_name("claude-rea")',installer.CLAUDE_BLOCK)
+        self.assertIn('Claude Code (service Anthropic)',installer.CLAUDE_BLOCK)
+
+    def test_script_installed_executable_and_saved_before_replacement(self):
+        with tempfile.TemporaryDirectory() as d:
+            root=Path(d);(root/'claude-rea').write_text('ancien');(root/'claude-rea').chmod(0o644)
+            backup=self.install_in(root,installer.OLD+'\n')
+            self.assertTrue((root/'claude-rea').stat().st_mode & 0o111)
+            self.assertEqual((backup/'claude-rea').read_text(),'ancien')
+            self.assertEqual((root/'claude-rea').read_text(),Path(installer.__file__).with_name('claude-rea').read_text())
+
+    def test_symlinked_claude_script_is_refused_and_nothing_written(self):
+        with tempfile.TemporaryDirectory() as d:
+            root=Path(d);(root/'rea-gui').write_text(installer.OLD+'\n')
+            (root/'claude-rea').symlink_to(root/'ailleurs')
+            with self.assertRaises(ValueError):installer.install(root,True)
+            self.assertEqual((root/'rea-gui').read_text(),installer.OLD+'\n')
+            self.assertFalse((root/'prevost-rea').exists())
+
+    def test_button_passes_project_with_spaces_and_cancel_runs_nothing(self):
+        node=next(n for n in ast.parse(installer.CLAUDE_BLOCK).body if isinstance(n,ast.FunctionDef))
+        dialog=Mock();dialog.askdirectory.return_value='/tmp/projet avec espaces'
+        process=Mock();namespace={'filedialog':dialog,'shutil':Mock(),'subprocess':process,'log':Mock(),'__file__':'/tmp/local/bin/rea-gui'}
+        namespace['shutil'].which.return_value='/usr/bin/xfce4-terminal'
+        exec(compile(ast.Module(body=[node],type_ignores=[]),'gui-test','exec'),namespace)
+        namespace['launch_claude_rea']()
+        args=process.Popen.call_args.args[0]
+        self.assertEqual(shlex.split(args[-1]),['/tmp/local/bin/claude-rea','--project','/tmp/projet avec espaces'])
+        dialog.askdirectory.return_value='';process.reset_mock()
+        namespace['launch_claude_rea']()
+        process.Popen.assert_not_called()
+
+    def test_launcher_runs_claude_in_the_project_with_no_extra_permission_flag(self):
+        with tempfile.TemporaryDirectory() as project,patch.object(claude_script,'find_claude',return_value='/usr/bin/claude'),\
+                patch.object(claude_script.subprocess,'run',return_value=Mock(returncode=0)) as run,\
+                patch('builtins.input',side_effect=AssertionError('pas de pause après une sortie normale')):
+            self.assertEqual(claude_script.main(['--project',project]),0)
+            run.assert_called_once_with(['/usr/bin/claude'],cwd=Path(project))
+        self.assertNotIn('dangerously',Path(installer.__file__).with_name('claude-rea').read_text())
+
+    def test_other_arguments_are_forwarded_to_claude(self):
+        with tempfile.TemporaryDirectory() as project,patch.object(claude_script,'find_claude',return_value='/usr/bin/claude'),\
+                patch.object(claude_script.subprocess,'run',return_value=Mock(returncode=0)) as run:
+            claude_script.main(['--project',project,'--resume'])
+            self.assertEqual(run.call_args.args[0],['/usr/bin/claude','--resume'])
+
+    def test_missing_claude_explains_the_official_install_and_launches_nothing(self):
+        with tempfile.TemporaryDirectory() as project,patch.object(claude_script,'find_claude',return_value=None),\
+                patch.object(claude_script.subprocess,'run',side_effect=AssertionError('rien à lancer')),\
+                patch('builtins.input',return_value='') as pause,contextlib.redirect_stdout(io.StringIO()) as out:
+            self.assertEqual(claude_script.main(['--project',project]),127)
+        self.assertIn('curl -fsSL https://claude.ai/install.sh | bash',out.getvalue())
+        pause.assert_called_once()
+
+    def test_unknown_project_folder_is_refused_before_looking_for_claude(self):
+        with patch.object(claude_script,'find_claude',side_effect=AssertionError('pas de recherche')),\
+                patch('builtins.input',return_value=''),contextlib.redirect_stdout(io.StringIO()):
+            self.assertEqual(claude_script.main(['--project','/dossier/qui/nexiste/pas']),2)
+
+    def test_failure_keeps_the_terminal_open(self):
+        with tempfile.TemporaryDirectory() as project,patch.object(claude_script,'find_claude',return_value='/usr/bin/claude'),\
+                patch.object(claude_script.subprocess,'run',return_value=Mock(returncode=3)),\
+                patch('builtins.input',return_value='') as pause:
+            self.assertEqual(claude_script.main(['--project',project]),3)
+        pause.assert_called_once()
+
+    def test_claude_is_found_in_the_official_install_folder_when_path_lacks_it(self):
+        with tempfile.TemporaryDirectory() as home,patch.object(claude_script.shutil,'which',return_value=None):
+            self.assertIsNone(claude_script.find_claude(home))
+            binary=Path(home)/'.local/bin/claude';binary.parent.mkdir(parents=True);binary.write_text('#!/bin/sh\n');binary.chmod(0o755)
+            self.assertEqual(claude_script.find_claude(home),str(binary))
+        with patch.object(claude_script.shutil,'which',return_value='/usr/bin/claude'):
+            self.assertEqual(claude_script.find_claude('/nulle/part'),'/usr/bin/claude')
+
+    def test_installed_script_runs_from_any_directory(self):
+        script=Path(installer.__file__).with_name('claude-rea')
+        result=subprocess.run([str(script),'--help'],capture_output=True,text=True,cwd=tempfile.gettempdir(),stdin=subprocess.DEVNULL,timeout=30)
+        self.assertEqual(result.returncode,0,result.stderr)
+        self.assertIn('--project',result.stdout)

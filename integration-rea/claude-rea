@@ -1,0 +1,67 @@
+#!/usr/bin/env python3
+"""Lancer Claude Code (service Anthropic, compte requis) dans le projet choisi depuis REA."""
+import argparse
+import os
+from pathlib import Path
+import shutil
+import subprocess
+import sys
+
+INSTALL_COMMAND = 'curl -fsSL https://claude.ai/install.sh | bash'
+
+
+def find_claude(home=None):
+    """Chemin de la commande claude : le PATH d'abord, puis les dossiers de l'installateur officiel.
+
+    Un raccourci lancé depuis le bureau n'a pas toujours ~/.local/bin dans son PATH.
+    """
+    found = shutil.which('claude')
+    if found:
+        return found
+    home = Path(home) if home else Path.home()
+    for candidate in (home/'.local/bin/claude', home/'.claude/local/claude'):
+        if candidate.is_file() and os.access(candidate, os.X_OK):
+            return str(candidate)
+    return None
+
+
+def pause(message):
+    """Garder la fenêtre ouverte pour lire un message (le terminal se ferme sinon)."""
+    try:
+        input(message + ' Entrée pour fermer ce terminal > ')
+    except EOFError:
+        pass
+
+
+def main(argv=None):
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--project', type=Path, default=Path.cwd(), help='Dossier de travail existant')
+    args, extra = parser.parse_known_args(argv)
+    project = args.project.expanduser()
+    if not project.is_dir():
+        print('Dossier du projet introuvable :', project)
+        pause('Claude n’a pas été lancé.')
+        return 2
+    claude = find_claude()
+    if claude is None:
+        print('Claude Code n’est pas installé sur cet ordinateur.')
+        print('Pour l’installer (commande officielle d’Anthropic), dans un terminal :')
+        print('  ' + INSTALL_COMMAND)
+        print('Puis ouvrir un nouveau terminal, lancer « claude » une fois pour se connecter à son compte.')
+        pause('Claude n’a pas été lancé.')
+        return 127
+    # Aucune option ajoutée : Claude Code demande lui-même l'autorisation de chaque action.
+    try:
+        code = subprocess.run([claude, *extra], cwd=project).returncode
+    except KeyboardInterrupt:
+        code = 130
+    except OSError as error:
+        print('Claude Code n’a pas pu démarrer :', error)
+        code = 126
+    if code:
+        pause(f'Claude Code s’est arrêté avec le code {code}.')
+    return code
+
+
+if __name__ == '__main__':
+    sys.exit(main())
