@@ -102,7 +102,7 @@ Saisir `scan complet` (ou `/scan CIBLE`) ouvre un dialogue déterministe, sans p
 
 | Module | Usage | Détails |
 | --- | --- | --- |
-| Banc d'essai | `python3 -m prevost bench --model NOM` (répéter `--model`, ou `--model tous`) : quatre missions fixes, vérifiées indépendamment du modèle, tableau OK/ÉCHEC avec la **raison de chaque échec**, une ligne de progression par mission. `--essais N` (1 à 10) rejoue chaque mission N fois dans un dossier neuf et donne un taux de réussite. **Une seule confirmation globale**, puis le code du modèle est écrit et exécuté sans autre demande, dans un dossier temporaire jetable. | ci-dessous |
+| Banc d'essai | `python3 -m prevost bench --model NOM` (répéter `--model`, ou `--model tous`) : quatre missions fixes, vérifiées indépendamment du modèle, tableau OK/ÉCHEC avec la **raison de chaque échec** et le **code produit par le modèle** pour chaque essai en échec, une ligne de progression par mission. `--essais N` (1 à 10) rejoue chaque mission N fois dans un dossier neuf et donne un taux de réussite. **Une seule confirmation globale**, puis le code du modèle est écrit et exécuté sans autre demande, dans un dossier temporaire jetable. | ci-dessous |
 | Gardien | `python3 -m prevost.guardian diagnostic` : diagnostic déterministe du PC (disque, services échoués, ports, mises à jour), sans modèle ; `veille` pour une surveillance au premier plan | [GARDIEN.md](GARDIEN.md) |
 | Agent à outils | `python3 -m prevost.agent catalogue --project DOSSIER` | [OUTILS.md](OUTILS.md) |
 | Réseaux consentis | `python3 -m prevost.network veille` | [RESEAUX.md](RESEAUX.md) |

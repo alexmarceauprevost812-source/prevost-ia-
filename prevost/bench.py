@@ -17,6 +17,7 @@ import time
 from .app import Ollama, Project, UI, choose, code_mission
 
 MAX_TRIALS = 10
+FILE_CHARS = 3000   # code affiché par fichier produit ; au-delà, le fichier est tronqué
 
 
 def short(text, limit=240):
@@ -254,15 +255,36 @@ MISSIONS = [
 ]
 
 
+def produced_files(folder, max_files=8):
+    """Code .py que le modèle a laissé dans le dossier de la mission, lu avant la suppression du dossier temporaire.
+
+    Fichiers ordinaires seulement (ni lien symbolique, ni tube, ni autre type) ; chacun est tronqué à FILE_CHARS."""
+    files = {}
+    for path in sorted(Path(folder).iterdir()):
+        if len(files) >= max_files:
+            break
+        if path.suffix != '.py' or path.is_symlink() or not path.is_file():
+            continue
+        try:
+            with path.open(encoding='utf-8', errors='replace') as source:
+                text = source.read(FILE_CHARS + 1)
+        except OSError:
+            continue
+        files[path.name] = text if len(text) <= FILE_CHARS else text[:FILE_CHARS] + '\n… (tronqué)'
+    return files
+
+
 def duration(seconds):
     seconds = round(seconds)
     return f'{seconds} s' if seconds < 60 else f'{seconds // 60} min {seconds % 60:02d} s'
 
 
-def run_mission(client, model, base, timeout, mission, trial=1):
+def run_mission(client, model, base, timeout, mission, trial=1, produced=None):
     """Joue une mission dans un dossier neuf ; retourne {critère: raison} (raison '' = critère satisfait).
 
-    Une erreur de mission fait échouer ses critères ; chaque essai a son dossier et son état propres."""
+    Une erreur de mission fait échouer ses critères ; chaque essai a son dossier et son état propres.
+    Si `produced` est donné et que l'essai a au moins un échec, le code laissé par le modèle y est rangé sous
+    (mission, essai) : le dossier est supprimé à la fin du banc, c'est la seule occasion de le lire."""
     name, request, criteria = mission
     folder = Path(tempfile.mkdtemp(prefix=f'{name}-{trial}-', dir=base))
     project = Project(folder, state=Path(base)/f'etat-{name}-{trial}')
@@ -277,13 +299,16 @@ def run_mission(client, model, base, timeout, mission, trial=1):
             outcomes[label] = check(folder, attempt)
         except Exception as error:
             outcomes[label] = 'vérification impossible : ' + short(f'{type(error).__name__} : {error}')
+    if produced is not None and any(outcomes.values()):
+        produced[(name, trial)] = produced_files(folder)
     return outcomes
 
 
-def run_model(client, model, base, timeout, trials=1, progress=None):
+def run_model(client, model, base, timeout, trials=1, progress=None, produced=None):
     """Retourne {(mission, critère): [raison, …]} avec une raison par essai ('' = critère satisfait).
 
-    `progress`, s'il est donné, reçoit une ligne de texte au début et à la fin de chaque essai."""
+    `progress`, s'il est donné, reçoit une ligne de texte au début et à la fin de chaque essai.
+    `produced`, s'il est donné, reçoit {(mission, essai): {fichier: code}} pour les essais en échec."""
     results = {}
     for mission in MISSIONS:
         name = mission[0]
@@ -292,7 +317,7 @@ def run_model(client, model, base, timeout, trials=1, progress=None):
             if progress:
                 progress(f'  {label}…')
             started = time.monotonic()
-            outcomes = run_mission(client, model, base, timeout, mission, trial)
+            outcomes = run_mission(client, model, base, timeout, mission, trial, produced)
             for criterion, reason in outcomes.items():
                 results.setdefault((name, criterion), []).append(reason)
             if progress:
@@ -336,8 +361,27 @@ def table(models, all_results, trials=1):
     return '\n'.join(lines)
 
 
-def failures(models, all_results, trials=1):
-    """Raisons des échecs, regroupées quand elles se répètent d'un essai à l'autre ; '' s'il n'y en a aucune."""
+def code_report(trials, produced):
+    """Lignes montrant le code produit par le modèle dans chaque essai en échec (`produced` : {(mission, essai): fichiers})."""
+    lines = []
+    for name, _, _ in MISSIONS:
+        for trial in range(1, trials + 1):
+            files = (produced or {}).get((name, trial))
+            if files is None:
+                continue
+            where = name if trials == 1 else f'{name} (essai {trial}/{trials})'
+            if not files:
+                lines.append(f'  {where} — aucun fichier .py produit')
+            for filename, text in files.items():
+                lines.append(f'  {where} — {filename} :')
+                lines.extend('        ' + line for line in text.splitlines() or ['(vide)'])
+    return lines
+
+
+def failures(models, all_results, trials=1, produced=None):
+    """Raisons des échecs, regroupées quand elles se répètent d'un essai à l'autre ; '' s'il n'y en a aucune.
+
+    Avec `produced` ({modèle: {(mission, essai): fichiers}}), le code produit par le modèle suit les raisons."""
     lines = []
     for model in models:
         found = []
@@ -356,6 +400,10 @@ def failures(models, all_results, trials=1):
         if found:
             lines.append(f'Raisons des échecs — {model}')
             lines.extend(found)
+            code = code_report(trials, (produced or {}).get(model))
+            if code:
+                lines.append(f'Code produit — {model} (essais en échec)')
+                lines.extend(code)
     return '\n'.join(lines)
 
 
@@ -391,12 +439,13 @@ def main(argv=None, ui=None, client=None):
                 ui.show(text)
                 sys.stdout.flush()  # sans cela, une sortie redirigée n'afficherait rien avant la fin du banc
 
-            all_results = {}
+            all_results, produced = {}, {}
             for model in models:
                 say(f'Modèle {model} : {len(MISSIONS)} missions × {args.essais} essai(s)…')
-                all_results[model] = run_model(client, model, base, args.timeout, args.essais, progress=say)
+                all_results[model] = run_model(client, model, base, args.timeout, args.essais, progress=say,
+                                               produced=produced.setdefault(model, {}))
             ui.raw(table(models, all_results, args.essais))
-            reasons = failures(models, all_results, args.essais)
+            reasons = failures(models, all_results, args.essais, produced)
             if reasons:
                 ui.raw('\n' + reasons)
         ui.show('Banc terminé. Un échec indique un critère non satisfait, pas un jugement général sur le modèle.'
