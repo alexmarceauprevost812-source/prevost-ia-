@@ -127,7 +127,7 @@ class Tool:
 
     def contract(self):
         return {**self.__dict__, 'additional_parameters': False,
-                'timeout_policy': 'cooperative_local_io' if self.name in ('project.read', 'project.write', 'local.disk') else 'hard_process_group',
+                'timeout_policy': 'cooperative_local_io' if self.name in ('project.read', 'project.write', 'local.disk', 'project.list', 'project.search') else 'hard_process_group',
                 'confirmation_wait_interruptible': True}
 
 
@@ -178,6 +178,14 @@ class Registry:
             {'path': {**path, 'suffix': '.py'}, 'expected_stdout': {'type': 'string', 'max_bytes': LIMIT}},
             ['execution_code', 'peut_modifier_systeme', 'peut_acceder_reseau'], 15,
             'Deux contrôles : syntaxe Python, puis retour 0 ET stdout attendu exact ; source inchangée après exécution', sensitive=True)
+        self.add('project.list', 'Lister les fichiers ordinaires du projet (500 maximum)', {},
+            ['lecture_projet'], 5, 'Liste réelle triée, sans lien symbolique ni métadonnées Git')
+        self.add('project.search', 'Chercher un texte exact dans les fichiers texte du projet',
+            {'text': {'type': 'string', 'max_bytes': 200}}, ['lecture_projet'], 8,
+            'Parcours réel borné (100 correspondances) ; texte littéral, sans expression régulière')
+        self.add('python.tests', 'Lancer les tests unittest du dossier tests/ du projet', {},
+            ['execution_code', 'peut_modifier_systeme', 'peut_acceder_reseau'], 120,
+            'Code retour 0 et ligne finale OK de unittest ; les tests exécutent du code du projet', sensitive=True)
         self.add('local.disk', 'Mesurer le disque racine visible', {}, ['lecture_statvfs'], 3,
             'Valeurs numériques cohérentes : 0 <= libre <= total et total > 0')
 
@@ -196,6 +204,12 @@ class Registry:
             self.add(name, description, {}, ['lecture_systeme'], 8,
                 'Code retour 0, sortie complète, aucune erreur d’accès ; pas de preuve de sécurité globale',
                 availability=self.availability(evidence))
+        git = shutil.which('git')
+        evidence = process([git, '--version'], timeout=5, cancel=self.cancel) if git else {'status': 'missing', 'error': 'git absent'}
+        self.evidence['git'] = evidence
+        self.add('git.status', 'État Git du projet en lecture seule (branche et fichiers modifiés)', {}, ['lecture_projet', 'lancement_processus'],
+            10, 'Code retour 0 et ligne de branche « ## » présente ; aucune modification du dépôt',
+            availability=self.availability(evidence))
         rea = shutil.which('rea')
         evidence = process([rea, '--version'], timeout=5, cancel=self.cancel) if rea else {'status': 'missing', 'error': 'rea absent'}
         self.evidence['rea'] = evidence
@@ -230,6 +244,16 @@ class Registry:
             ['lecture_conteneur', 'lancement_processus'], 10,
             'Conteneur actif et inventaire JSON réel ; présence ne garantit pas le fonctionnement',
             environment='kali-lexos', availability=self.availability(check))
+        # Outils Kali passifs : le fichier est transmis sur stdin, aucune cible réseau, aucun montage.
+        for tool, label in (('file', 'Identifier le type d’un fichier du projet avec `file` de kali-lexos'),
+                            ('strings', 'Extraire les chaînes lisibles d’un fichier du projet avec `strings` de kali-lexos')):
+            ready = self.availability(check)
+            if ready['status'] == 'available' and not self.kali_paths.get(tool):
+                ready = {'status': 'unavailable', 'reason': tool + ' absent de kali-lexos'}
+            self.add('kali.' + tool, label, {'path': {'type': 'string', 'path': True, 'max_bytes': 4096}},
+                ['lecture_projet', 'lecture_conteneur', 'lancement_processus'], 15,
+                'Code retour 0 et sortie non vide ; analyse statique passive, fichier de 1 Mo maximum',
+                environment='kali-lexos', availability=ready)
 
     @staticmethod
     def availability(evidence):
@@ -312,16 +336,70 @@ class Registry:
                                   'rollback': 'Sauvegardes éventuelles : ' + str(self.project.state/'backups') + '. Nouveau fichier : suppression manuelle confirmée.'})
                 else:
                     result['status'] = 'rejected'
+            elif name == 'project.list':
+                files, truncated = [], False
+                for base, dirs, names in os.walk(self.project.root):
+                    dirs[:] = sorted(d for d in dirs if d not in ('.git', '.prevost', '__pycache__')
+                                     and not (Path(base)/d).is_symlink())
+                    for item in sorted(names):
+                        full = Path(base)/item
+                        if full.is_symlink() or not full.is_file():
+                            continue
+                        if len(files) >= 500:
+                            truncated = True
+                            break
+                        files.append(str(full.relative_to(self.project.root)))
+                    if truncated:
+                        break
+                result.update(status='ok', verified=True,
+                    evidence={'files': files, 'count': len(files), 'truncated': truncated})
+            elif name == 'project.search':
+                needle, matches, truncated = params['text'], [], False
+                if not needle:
+                    raise ValueError('Texte non vide requis.')
+                limit_time = started + deadline
+                for base, dirs, names in os.walk(self.project.root):
+                    dirs[:] = sorted(d for d in dirs if d not in ('.git', '.prevost', '__pycache__')
+                                     and not (Path(base)/d).is_symlink())
+                    for item in sorted(names):
+                        if time.monotonic() > limit_time:
+                            raise TimeoutError('Délai de recherche dépassé.')
+                        full = Path(base)/item
+                        if full.is_symlink() or not full.is_file() or full.stat().st_size > LIMIT:
+                            continue
+                        try:
+                            lines = full.read_text(encoding='utf-8').splitlines()
+                        except (UnicodeDecodeError, OSError):
+                            continue
+                        for number, line in enumerate(lines, 1):
+                            if needle in line:
+                                if len(matches) >= 100:
+                                    truncated = True
+                                    break
+                                matches.append({'path': str(full.relative_to(self.project.root)), 'line': number, 'text': line[:200]})
+                        if truncated:
+                            break
+                    if truncated:
+                        break
+                result.update(status='ok', verified=True,
+                    evidence={'matches': matches, 'count': len(matches), 'truncated': truncated})
             elif name == 'local.disk':
                 disk = shutil.disk_usage('/')
                 result.update(status='ok', verified=0 <= disk.free <= disk.total and disk.total > 0,
                     evidence={'source': 'statvfs(/)', 'total': disk.total, 'free': disk.free})
             else:
+                stdin_data = None
                 if name == 'python.run':
                     path = self.project.path(params['path'])
                     if self.project.read(params['path']) != source:
                         raise ValueError('Le code a changé depuis sa présentation ; exécution annulée.')
                     argv = [sys.executable, '-B', str(path)]
+                elif name == 'git.status':
+                    argv = [shutil.which('git'), 'status', '--porcelain=v1', '--branch', '--no-renames']
+                elif name == 'python.tests':
+                    if not (self.project.root/'tests').is_dir():
+                        raise ValueError('Dossier tests/ absent du projet.')
+                    argv = [sys.executable, '-B', '-m', 'unittest', 'discover', '-s', 'tests']
                 elif name in ('local.ports', 'local.services'):
                     argv = self.evidence[name]['argv']
                 elif name == 'rea.doctor':
@@ -331,13 +409,21 @@ class Registry:
                     if not path.is_file() or path.stat().st_size > 1_000_000:
                         raise ValueError('Fichier .pyc existant limité à 1 Mo requis.')
                     argv = [shutil.which('rea'), 'inspect-python-pyc', str(path), '--max-file-bytes', '1000000', '--format', 'json']
+                elif name in ('kali.file', 'kali.strings'):
+                    path = self.project.path(params['path'])
+                    if not path.is_file() or path.stat().st_size > 1_000_000:
+                        raise ValueError('Fichier existant limité à 1 Mo requis.')
+                    data = path.read_bytes()
+                    tool = name.split('.')[1]
+                    argv = [shutil.which('podman'), 'exec', '-i', 'kali-lexos', tool] + (['-b', '-'] if tool == 'file' else ['-a', '-n', '6'])
+                    stdin_data = data
                 elif name == 'kali.inventory':
                     # Relire les métadonnées fixes, sans démarrer le conteneur.
                     argv = [shutil.which('podman'), 'exec', 'kali-lexos', 'python3', '-B', '-c',
                             'import json,shutil; print(json.dumps({n:shutil.which(n) for n in ("python3","nmap","tshark","file","strings")}))']
                 else:
                     raise ValueError('Outil non implémenté')
-                evidence = process(argv, self.project.root, deadline, self.cancel)
+                evidence = process(argv, self.project.root, deadline, self.cancel, input_data=stdin_data)
                 result.update(status=evidence['status'], evidence=evidence)
                 verified = evidence['status'] == 'ok'
                 if name == 'python.run':
@@ -348,6 +434,14 @@ class Registry:
                     verified = verified and unchanged
                     result['source_unchanged'] = unchanged
                     result['code_checks']['execution'] = 'passed' if verified else 'failed'
+                elif name in ('kali.file', 'kali.strings'):
+                    verified = verified and bool(evidence['stdout'].strip())
+                elif name == 'git.status':
+                    verified = verified and evidence['stdout'].startswith('## ')
+                elif name == 'python.tests':
+                    last = evidence['stderr'].strip().splitlines()[-1:] or ['']
+                    verified = verified and last[0].startswith('OK')
+                    result['tests_summary'] = last[0]
                 elif name.startswith('rea.'):
                     payload = json.loads(evidence['stdout'])
                     if not isinstance(payload, dict):
