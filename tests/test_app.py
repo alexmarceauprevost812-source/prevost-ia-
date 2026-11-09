@@ -133,6 +133,38 @@ class AppTests(unittest.TestCase):
         self.assertEqual([r['status'] for r in records if r.get('event') == 'code_validation'],
                          ['double_verification_reussie', 'verification_incomplete', 'verification_incomplete'])
 
+    def test_coder_repairs_failing_code_from_real_error(self):
+        first = {'files': [{'path': 'calc.py', 'content': 'print(1 / 0)\n'}], 'commands': [],
+                 'checks': [{'path': 'calc.py', 'expected_stdout': '2\n'}]}
+        fixed = {'files': [{'path': 'calc.py', 'content': 'print(1 + 1)\n'}],
+                 'checks': [{'path': 'calc.py', 'expected_stdout': '2\n'}]}
+        prompts = []
+        class Model:
+            replies = iter([first, fixed])
+            def chat(self, model, messages, structured=False):
+                prompts.append(messages[-1]['content'])
+                yield json.dumps(next(self.replies))
+        ui = UI(); ui.confirm = lambda _: True
+        with contextlib.redirect_stdout(io.StringIO()):
+            validation = code_mission(Model(), 'simulé', self.project, 'Additionner', ui, 5)
+        self.assertEqual(validation['status'], 'double_verification_reussie')
+        self.assertEqual(self.project.read('calc.py'), 'print(1 + 1)\n')
+        self.assertIn('ZeroDivisionError', prompts[1])
+
+    def test_coder_repair_gives_up_without_progress(self):
+        plan = {'files': [{'path': 'same.py', 'content': 'print(1)\n'}], 'commands': [],
+                'checks': [{'path': 'same.py', 'expected_stdout': '2\n'}]}
+        calls = []
+        class Model:
+            def chat(self, *args, **kwargs):
+                calls.append(1)
+                yield json.dumps(plan)
+        ui = UI(); ui.confirm = lambda _: True
+        with contextlib.redirect_stdout(io.StringIO()):
+            validation = code_mission(Model(), 'simulé', self.project, 'Test', ui, 5)
+        self.assertEqual(validation['status'], 'verification_incomplete')
+        self.assertEqual(len(calls), 2)
+
     def test_coder_invalid_check_stops_before_writing(self):
         class Model:
             def chat(self, *args, **kwargs):
