@@ -214,3 +214,7 @@ Samsung réussis, dont 24 nouveaux. Les 91 tests de l’application IA existante
 été lancés : 89 réussis, deux lancements CLI bloqués par l’historique en lecture seule
 dans le sandbox. Cette version est préparée sur `feature/samsung-recovery-v21`, en
 pull request avant fusion. Aucun rapport privé ou justificatif personnel publié.
+
+## Licence
+
+Projet publié sous licence MIT : voir [LICENSE](LICENSE). Le logiciel est fourni sans garantie ; les commandes et scans restent sous la responsabilité de la personne qui les confirme.
