@@ -189,6 +189,7 @@ class AppTests(unittest.TestCase):
     def test_cli_manual_mission_real(self):
         commands = '/ecrire hello.py\nprint("MISSION_OK")\n.fin\noui\n/commande ' + shlex_executable() + ' hello.py\noui\n/quitter\n'
         result = subprocess.run([sys.executable, '-B', '-m', 'prevost', '--project', str(self.root),
+            '--state-dir', str(Path(self.tmp.name)/'cli-state'),
             '--ollama', 'http://127.0.0.1:1', '--http-timeout', '.1'], input=commands,
             text=True, capture_output=True, timeout=10)
         self.assertEqual(result.returncode, 0, result.stderr)

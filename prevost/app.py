@@ -375,6 +375,7 @@ Toute autre saisie : conversation française en streaming ; elle ne lance pas d�
 def main(argv=None):
     parser = argparse.ArgumentParser(description='PRÉVOST — programmation locale avec Ollama')
     parser.add_argument('--project', default='.', help='Dossier de travail existant')
+    parser.add_argument('--state-dir', help='Dossier des historiques et sauvegardes (privé, hors Git)')
     parser.add_argument('--ollama', default=os.environ.get('OLLAMA_HOST', 'http://127.0.0.1:11434'))
     parser.add_argument('--model')
     parser.add_argument('--timeout', type=float, default=30, help='Délai commandes, maximum 300 s')
@@ -390,7 +391,7 @@ def main(argv=None):
             ui.show('Adresse Ollama : ' + client.address)
             ui.show('Modèles installés : ' + json.dumps(client.models(), ensure_ascii=False))
             return 0
-        project = Project(args.project)
+        project = Project(args.project, state=args.state_dir) if args.state_dir else Project(args.project)
         ui.display(ui.RED, ' PRÉVOST IA LOCAL — PROGRAMMATION ')
         ui.show(f'Projet : {project.root}\nHistorique local : {project.state}')
         if not client.local and not ui.confirm('Ollama est distant : confirmer la transmission du contexte à ' + client.address):
