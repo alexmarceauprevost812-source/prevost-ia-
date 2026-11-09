@@ -136,3 +136,26 @@ validation, fichier non Python et protection du code contre son remplacement par
 rapport. Les tests `/coder` utilisent une génération de plan simulée, puis des écritures
 et exécutions réelles. Aucun nouveau résultat Ollama réel n’est revendiqué. Ces essais
 vérifient le mécanisme de validation, pas la qualité générale des programmes d’un modèle.
+
+
+## Fiabilité de `/coder`, mémoire et banc d’essai — 9 novembre 2026
+
+Commandes lancées : `python3 -B -m unittest discover -s tests` (127 tests réussis) et, dans `samsung-recovery`, `python3 -B -m unittest discover -s tests` (114 tests réussis).
+
+### Testé pour de vrai
+
+- Exécution réelle de Python et de sous-processus dans des dossiers temporaires : échec d’un contrôle puis correction, échec d’une commande (code retour 3), expiration d’un délai, refus d’une confirmation, limite de deux essais, absence de progrès.
+- Compilation réelle (sans exécution) des `.py` proposés ; aucun fichier cassé n’est écrit.
+- Écritures réelles, sauvegardes en mode 600, restauration par `/annuler` après différence et confirmation, refus sans effet.
+- Mémoire : fichier réel en mode 600 dans un dossier 700, masquage de secrets, limite de 2 Ko, effacement avec confirmation exacte.
+- Banc d’essai : vérifications indépendantes exécutées réellement sur les fichiers produits ; confirmation unique et refus sans effet.
+
+### Simulé
+
+- **Toutes les réponses du modèle** (plans JSON, plans tronqués, corrections) viennent de faux clients en mémoire. Aucun essai avec un vrai Ollama : le comportement réel des modèles installés, leur taux de réussite et la qualité de leurs corrections ne sont pas validés.
+- Le tableau du banc a été produit uniquement avec un « bon » et un « mauvais » faux modèle ; il ne dit rien des modèles réels.
+- Linux seulement a été exécuté ; Termux n’a pas été relancé dans cette session.
+
+### Non fait
+
+- Outil web en lecture seule et description d’image (mission 7, prévue plus tard).

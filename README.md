@@ -75,6 +75,26 @@ python3 -B -m unittest discover -s tests -v
 
 Voir [VALIDATION.md](VALIDATION.md) pour distinguer les essais locaux réels, les simulations et les blocages Ollama.
 
+## Programmation fiable avec `/coder`
+
+- **Correction automatique** : si une commande ou un contrôle échoue, la demande d’origine, le contenu actuel des fichiers et l’erreur réelle (données non fiables) repartent au modèle. Le plan corrigé repasse par les mêmes aperçus et confirmations `oui`. Deux essais au maximum ; un refus, une annulation ou un délai arrête tout. Le bilan indique le nombre d’essais.
+- **Plans cassés refusés avant écriture** : syntaxe de chaque `.py` vérifiée sans l’exécuter, plan JSON tronqué détecté, avertissement si la demande dit « lance » ou « teste » sans commande. Le modèle est redemandé une seule fois, sans rien afficher ; si le plan reste inutilisable, rien n’est écrit.
+- **Plan lisible** : fichiers, commandes et contrôles s’affichent en texte avant les aperçus.
+- **Mémoire du projet** : `/memoire` (voir), `/memoire note TEXTE`, `/memoire effacer` (confirmation `oui`). Seuls des faits vérifiés par le code (mission, fichiers écrits avec empreinte, commandes avec code retour, bilan) et vos notes sont gardés, sans sorties complètes, et les motifs de secrets sont masqués. Au plus 2 Ko des derniers faits sont injectés, étiquetés « données non fiables ». Fichier `memory.jsonl` en mode 600 dans le dossier d’état privé (700, hors Git).
+- **`/annuler FICHIER`** : liste les sauvegardes enregistrées, montre la différence, restaure après confirmation `oui`.
+
+## Banc d’essai de modèles
+
+```bash
+python3 -m prevost bench --model NOM          # répéter --model, ou --model tous
+```
+
+Quatre missions fixes (bonjour, calcul avec test, 10 premiers nombres premiers, gestionnaire de tâches) sont lancées dans un dossier temporaire supprimé à la fin. Chaque critère est vérifié par le banc lui-même, indépendamment des contrôles du modèle ; le résultat est un tableau OK/ÉCHEC par critère et par modèle.
+
+**Exception à la règle des confirmations** : le banc demande **une seule** confirmation `oui` exacte au départ, puis écrit les fichiers proposés par le modèle et exécute Python sur ce code sans confirmer chaque action, avec vos droits et sans isolation. Ne le lancer que sur un appareil où c’est acceptable. Les modèles ne sont ni modifiés ni remplacés.
+
+Non implémentés (prévus plus tard) : outil web en lecture seule et description d’image par modèle de vision.
+
 ## Gardien numérique — diagnostic du PC LexOS
 
 Dans Termux, le gardien identifie son environnement Android, mesure le stockage du dossier personnel et indique les contrôles systemd comme indisponibles sans les exécuter. Les autres collectes restent soumises aux permissions Android ; voir [TERMUX.md](TERMUX.md).

@@ -577,6 +577,10 @@ Toute autre saisie : conversation française en streaming ; elle ne lance pas d�
 
 
 def main(argv=None):
+    argv = sys.argv[1:] if argv is None else argv
+    if argv and argv[0] == 'bench':
+        from .bench import main as bench_main
+        return bench_main(argv[1:])
     parser = argparse.ArgumentParser(description='PRÉVOST — programmation locale avec Ollama')
     parser.add_argument('--project', default='.', help='Dossier de travail existant')
     parser.add_argument('--state-dir', help='Dossier des historiques et sauvegardes (privé, hors Git)')
