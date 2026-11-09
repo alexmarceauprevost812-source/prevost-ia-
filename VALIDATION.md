@@ -214,3 +214,11 @@ Commandes lancées : `python3 -B -m unittest discover -s tests` (127 tests réus
 Commandes lancées après la fusion, Python 3.13 sous Linux : `python3 -B -m unittest discover -s tests` (196 tests réussis), `python3 -B -m unittest test_premiers` (4), dans `samsung-recovery` (114) et dans `integration-rea` (32).
 
 **Non vérifié** : le banc d’essai n’a jamais tourné avec un vrai modèle Ollama (seulement un « bon » et un « mauvais » faux modèle) ; l’interface complète fusionnée n’a pas été relancée à la main sur le PC d’Alex.
+
+## Bouton Claude dans REA — 9 novembre 2026
+
+Ajout du raccourci `claude-rea` et d'un troisième bouton dans l'interface REA (Claude Code sur le projet choisi). Tests de `integration-rea` : 45 réussis (13 nouveaux : bouton ajouté une fois et après les deux autres, `rea-gui` déjà installé avec deux boutons, sauvegarde et refus des liens, dossier avec espaces et annulation, recherche de `claude`, commande officielle affichée si absent, terminal gardé ouvert en cas d'échec, aucune option de contournement des autorisations).
+
+**Essayé pour de vrai** : l'installateur sur un faux `rea-gui` dans un dossier temporaire (le fichier compile, trois boutons) ; `claude-rea` lancé avec un faux `claude` dans le PATH (bon dossier de travail, options transmises, code 0) et sans aucun `claude` (message d'installation, code 127).
+
+**Non vérifié** : le vrai Claude Code (jamais lancé par ces tests), le clic sur le vrai bouton REA et l'ouverture du terminal sur Ubuntu, la longueur du bandeau (inchangé). Le `rea-gui` réel d'Alex n'a pas été lu depuis cette session.

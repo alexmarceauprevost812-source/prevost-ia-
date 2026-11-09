@@ -29,6 +29,26 @@ Le titre de la fenêtre REA devient « PRÉVOST — REA » et l'en-tête indique
 **Icône REA.** `installer.py --apply` crée aussi un raccourci nommé **REA** qui ouvre l'interface REA (`rea-gui`) avec l'image `integration-rea/rea.svg` (fond noir, REA en rouge, « PRÉVOST local » en bleu ciel néon) : `~/.local/share/icons/rea.svg`, `~/.local/share/applications/rea-interface.desktop` et, si le dossier du bureau est défini (`xdg-user-dir DESKTOP`), une copie `REA.desktop` sur le bureau, marquée « autorisée » avec `gio`. Les fichiers remplacés sont sauvegardés comme les autres ; un lien symbolique est refusé. `--share-dir` et `--desktop-dir` changent les dossiers. Un ancien `REA.desktop` du menu des applications n'est pas touché : il peut rester à côté du nouveau. L'affichage de l'image sur un vrai bureau Ubuntu n'a pas été vu ici : les tests vérifient les fichiers écrits, pas le rendu.
 Un `rea-gui` qui avait reçu le bouton sous son ancien nom `prevost-ia` est migré ; un ancien fichier `~/.local/bin/prevost-ia` éventuel n'est pas supprimé et peut être effacé à la main.
 
+## Troisième bouton : claude-rea (Claude Code)
+
+Le bouton **claude-rea** demande le projet, puis ouvre **Claude Code** (la commande `claude`) dans ce
+dossier, dans un terminal, comme les deux autres boutons. Commande : `claude-rea --project /chemin/du/projet`
+(les autres options sont transmises à `claude`, par exemple `--resume`).
+
+**À savoir.** Contrairement à PRÉVOST et à Codex avec un modèle local, Claude Code travaille avec le service
+d'Anthropic : il faut un compte, et les fichiers qu'il lit sont envoyés à ce service. Le raccourci n'ajoute aucune
+option pour sauter les autorisations : Claude Code demande lui-même la permission de chaque action.
+
+**Claude Code doit être installé.** L'installateur REA ne l'installe pas. Commande officielle d'Anthropic, dans
+un terminal : `curl -fsSL https://claude.ai/install.sh | bash`, puis lancer `claude` une fois pour se connecter.
+Si le bouton est cliqué sans qu'il soit installé, le terminal l'explique et reste ouvert. Le raccourci cherche
+`claude` dans le PATH puis dans `~/.local/bin` et `~/.claude/local`, car un lancement depuis le bureau n'a pas
+toujours `~/.local/bin` dans son PATH.
+
+`installer.py --apply` ajoute ce bouton **à côté** des deux autres (un `rea-gui` déjà installé avec deux boutons
+reçoit seulement le troisième) et écrit `~/.local/bin/claude-rea`, avec les mêmes sauvegardes et le même refus
+des liens symboliques. Fermer puis rouvrir REA ensuite.
+
 ## Thème demandé
 
 - Fond noir `#000000`, texte principal blanc `#FFFFFF`.

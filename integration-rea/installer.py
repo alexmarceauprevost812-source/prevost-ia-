@@ -1,4 +1,4 @@
-"""Installer le raccourci utilisateur rea-prevost et corriger le bouton REA local."""
+"""Installer les raccourcis utilisateur rea-prevost, prevost-rea et claude-rea et corriger le bouton REA local."""
 import argparse
 import datetime
 import os
@@ -62,6 +62,12 @@ PYTHON_BLOCK = '''def launch_prevost_rea():
         log("PRÉVOST non lancé : " + str(exc))
 
 button("prevost-rea", launch_prevost_rea)'''
+# Bouton Claude Code : même mécanique que prevost-rea, vers le raccourci claude-rea.
+CLAUDE_BLOCK = (PYTHON_BLOCK.replace('launch_prevost_rea', 'launch_claude_rea')
+                .replace('Projet à modifier avec PRÉVOST (plans vérifiés, corrections confirmées)',
+                         'Projet à modifier avec Claude Code (service Anthropic)')
+                .replace('"prevost-rea"', '"claude-rea"')
+                .replace('PRÉVOST non lancé', 'Claude non lancé'))
 # Version publiée brièvement sous le nom prevost-ia : migrée vers prevost-rea.
 PYTHON_BLOCK_V1 = PYTHON_BLOCK.replace('launch_prevost_rea', 'launch_prevost_ia').replace('"prevost-rea"', '"prevost-ia"')
 DEPOT_LINE = "DEPOT = None  # remplacé par l'installateur"
@@ -145,6 +151,7 @@ def install(bin_dir, apply=False, theme_dir=None, share_dir=None, desktop_dir=No
     bin_dir = Path(bin_dir)
     theme_dir = Path(theme_dir) if theme_dir is not None else bin_dir/'themes'
     gui, shortcut, python_shortcut = bin_dir/'rea-gui', bin_dir/'rea-prevost', bin_dir/'prevost-rea'
+    claude_shortcut = bin_dir/'claude-rea'
     theme = theme_dir/'prevost-noir.tmTheme'
     extras = {}
     if share_dir is not None:
@@ -155,7 +162,7 @@ def install(bin_dir, apply=False, theme_dir=None, share_dir=None, desktop_dir=No
                   launcher:(desktop_entry(gui,icon),0o755)}
         if desktop_dir is not None and Path(desktop_dir).is_dir():
             extras[Path(desktop_dir)/DESKTOP_COPY] = (desktop_entry(gui,icon),0o755)
-    targets = (gui,shortcut,python_shortcut,theme,*extras)
+    targets = (gui,shortcut,python_shortcut,claude_shortcut,theme,*extras)
     if any(p.is_symlink() for p in targets):
         raise ValueError('Un des fichiers est un lien symbolique : installation automatique refusée.')
     original = gui.read_text(encoding='utf-8')
@@ -173,13 +180,16 @@ def install(bin_dir, apply=False, theme_dir=None, share_dir=None, desktop_dir=No
         if updated.count(NEW) != 1:
             raise ValueError('Bouton REA attendu absent ou ambigu ; aucune modification effectuée.')
         updated = updated.replace(NEW,NEW+'\n\n'+PYTHON_BLOCK)
+    if CLAUDE_BLOCK not in updated:
+        updated = updated.replace(PYTHON_BLOCK,PYTHON_BLOCK+'\n\n'+CLAUDE_BLOCK)
     python_source = python_shortcut_source()
     updated = apply_theme(updated)
     compile(updated,str(gui),'exec')
     print('rea-prevost → choix du projet → Codex → modèle local prevost:latest')
     print('prevost-rea → choix du projet → PRÉVOST Python (plans vérifiés, corrections confirmées) → modèle au choix')
+    print('claude-rea → choix du projet → Claude Code (service Anthropic, compte requis ; commande claude à installer si absente)')
     print('Thème : fond noir, texte blanc, code coloré, accents rouges.')
-    print('Fichiers :',gui,shortcut,python_shortcut,theme)
+    print('Fichiers :',gui,shortcut,python_shortcut,claude_shortcut,theme)
     if extras:
         print('Raccourci REA (image REA) :',*extras)
     if not apply:
@@ -200,6 +210,7 @@ def install(bin_dir, apply=False, theme_dir=None, share_dir=None, desktop_dir=No
         for path,content,mode in ((gui,updated,gui.stat().st_mode & 0o777),
                                  (shortcut,source.read_text(),0o755),
                                  (python_shortcut,python_source,0o755),
+                                 (claude_shortcut,Path(__file__).with_name('claude-rea').read_text(),0o755),
                                  (theme,Path(__file__).with_name('prevost-noir.tmTheme').read_text(),0o600),
                                  *((path,content,mode) for path,(content,mode) in extras.items())):
             temp = path.parent/('.'+path.name+'-'+stamp)
@@ -221,7 +232,7 @@ def install(bin_dir, apply=False, theme_dir=None, share_dir=None, desktop_dir=No
             elif path != gui and path.exists(): path.unlink()
         raise
     print('Installé. Sauvegarde :',backup)
-    print('Fermer puis rouvrir REA ; boutons rea-prevost (Codex) et prevost-rea (PRÉVOST Python). Commandes : rea-prevost, prevost-rea')
+    print('Fermer puis rouvrir REA ; boutons rea-prevost (Codex), prevost-rea (PRÉVOST Python) et claude-rea (Claude Code). Commandes : rea-prevost, prevost-rea, claude-rea')
     if extras:
         print('Icône REA : menu des applications et bureau (clic droit > Autoriser le lancement si elle reste blanche).')
     return backup
