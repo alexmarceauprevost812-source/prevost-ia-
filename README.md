@@ -1,89 +1,81 @@
-# PRÉVOST IA Local — v2
+# PRÉVOST IA Local
+
+Assistant de programmation et gardien numérique **100 % local** : Python, Ollama, aucune dépendance Python externe dans le cœur (le coffre optionnel utilise `cryptography`). Python 3.10+ et Linux ou Termux (Android) requis.
 
 Licence : [MIT](LICENSE) © 2026 alexmarceauprevost812-source.
 
-La branche `v2` réunit les historiques de `main` et `feature/prevost-local-v1`, dont les fichiers étaient identiques au moment de la réunion. La branche `supabase` est déjà incluse dans `main` ; elle ne contient aucune intégration Supabase supplémentaire. Cette base v2 conserve les fonctions existantes et ajoute le choix du dossier d’historique avec `--state-dir`.
+**Sommaire** : [Installation](#installation) · [Démarrage](#démarrage) · [Commandes](#commandes) · [Programmation fiable](#programmation-fiable-avec-coder) · [Banc d’essai](#banc-dessai-de-modèles) · [Mémoire et historique](#mémoire-historique-et-sauvegardes) · [Sécurité](#règles-de-sécurité) · [Gardien](#gardien-numérique) · [Agent et outils](#agent-et-outils-vérifiés) · [Réseau et scan](#réseau-et-scan) · [Samsung Recovery](#samsung-recovery) · [Tests](#tests)
 
-Assistant Python de programmation locale avec Ollama. Le cœur fonctionne sans dépendance Python externe ; le coffre optionnel utilise `cryptography`. Python 3.10+ et Linux sont requis pour l’arrêt des groupes de processus.
+## Installation
 
-## Lancement
-
-Pour Android, voir la [version Termux](TERMUX.md) : installateur, lanceur `prevost`, coffre et limites réseau.
-
-Depuis ce dépôt :
+**Linux (Ubuntu, etc.)** : aucune installation, PRÉVOST se lance depuis le dépôt.
 
 ```bash
+git clone https://github.com/alexmarceauprevost812-source/prevost-ia-.git
+cd prevost-ia-
 python3 -m prevost --diagnostic
-python3 -m prevost --project ~/mon-projet --ollama http://127.0.0.1:11435
 ```
 
-Le dossier du projet doit déjà exister. L’adresse vient de `--ollama`, puis de `OLLAMA_HOST`, puis de `http://127.0.0.1:11434`. Le diagnostic affiche l’adresse effective et interroge `/api/tags`. Il n’installe et ne télécharge aucun modèle. La sélection proposée correspond uniquement aux modèles retournés par ce service ; `--model NOM` doit aussi correspondre à cette liste.
+Le dépôt est privé : il faut votre accès GitHub. Ollama doit déjà être installé et avoir au moins un modèle ; PRÉVOST n’en télécharge aucun. Pour le coffre chiffré seulement : `python3 -m pip install -r requirements-vault.txt` (installe `cryptography`).
+
+**Android (Termux)** : l’installateur ajoute la commande `prevost`.
 
 ```bash
-python3 -m prevost --project /tmp/mon-projet --model NOM_INSTALLE --timeout 30
+pkg install git
+git clone https://github.com/alexmarceauprevost812-source/prevost-ia-.git
+cd prevost-ia-
+bash install-termux.sh
+mkdir -p ~/projets/essai
+prevost --project ~/projets/essai
 ```
 
-`--timeout` fixe le délai maximal des commandes (300 secondes au maximum). `--http-timeout` fixe le délai d’inactivité réseau. `/modeles` permet de réessayer la connexion ou de changer de modèle.
+Il installe `python` et `python-cryptography`, sans modèle, sans scan, sans service de fond. Garder le dépôt à son emplacement et relancer le script s’il est déplacé. Détails : [TERMUX.md](TERMUX.md).
 
-## Utilisation
+**Raccourci Codex « rea-prevost » (Ubuntu)** : `python3 integration-rea/installer.py` affiche un aperçu ; ajouter `--apply` pour installer. Voir [integration-rea/README.md](integration-rea/README.md).
 
-- Texte libre : conversation en français, réponse affichée au fil des fragments Ollama.
-- `/lire chemin` : lire un fichier UTF-8 et l’ajouter au contexte de conversation.
-- `/ecrire chemin` : saisir un fichier complet ; terminer par `.fin` sur sa propre ligne.
-- `/coder demande` : demander à Ollama un plan de fichiers et de commandes. Le plan apparaît progressivement ; les différences de chaque fichier et chaque commande nécessitent ensuite un `oui` explicite.
-- `/commande python3 programme.py` : proposer puis exécuter une commande après confirmation.
-- `/scan [cible]`, `scan complet` ou `scam complet` : demander une cible précise et proposer `nmap -v -A CIBLE` avec une autorisation distincte, même sans modèle disponible.
-- `/historique` : afficher les derniers échanges ; `/aide` et `/quitter`.
-
-Pour modifier un fichier avec Ollama, le lire d’abord avec `/lire`, puis utiliser `/coder` en décrivant la modification. Refuser un fichier interrompt la mission avant les commandes. Une commande refusée, expirée ou en échec interrompt la suite du plan. Une sortie réussie ne prouve que le résultat de cette commande.
-
-### Double vérification du code Python
-
-Dans `/coder` et `/agent`, le bilan du code exige deux contrôles complémentaires pour chaque fichier écrit : compilation de la syntaxe sans exécuter le programme, puis exécution confirmée avec code retour zéro et comparaison exacte à une sortie attendue. Une relecture ne remplace aucun de ces contrôles. L’empreinte du fichier doit encore correspondre au bilan ; une modification pendant l’exécution invalide le contrôle.
-
-`/coder` demande au modèle une liste `checks` de contrôles `{ "path": "programme.py", "expected_stdout": "sortie attendue\n" }`, exécutés après les écritures et commandes. Un ancien plan sans contrôles peut toujours écrire les fichiers confirmés, mais son bilan indique `verification_incomplete`. `/agent` refuse une fin de mission réussie après des écritures sans ces preuves ; toute nouvelle écriture impose de refaire les contrôles de tous les fichiers écrits pendant la mission. Les rapports présentent le détail et les identifiants de preuve.
-
-Le bilan `double_verification_reussie` porte sur ces deux critères seulement : il ne prouve pas tous les comportements, les dépendances ni la sécurité. Le modèle reçoit la consigne de prévoir des tests pertinents pour les cas normaux et les erreurs, mais leur qualité reste à examiner. Pour un module sans sortie, une exécution silencieuse ne teste pas ses fonctions ; prévoir aussi une suite de tests confirmée. La double vérification automatique actuelle concerne Python ; les autres langages restent signalés sans validation complète. Aucun test proposé par le modèle n’est exécuté sans confirmation.
-
-Sans Ollama, les commandes manuelles restent disponibles. Dans la conversation, `/coder` et `/agent`, l’interface emploie un fond noir, le nom et l’étiquette PRÉVOST rouges, les réponses bleu ciel RGB `#87CEEB` (aussi pendant le streaming), les noms d’outils et commandes jaunes RGB `#FFFF00`, l’invite « Vous > », la saisie et les résultats bruts blancs. Les couleurs sont réinitialisées après chaque affichage et lors des interruptions. Les séquences de contrôle provenant du modèle et des fichiers sont neutralisées. Les couleurs sont désactivées hors terminal ou avec `NO_COLOR=1`.
-
-## Historique et sauvegardes
-
-L’option `--state-dir DOSSIER` permet de choisir le dossier des historiques et sauvegardes de la CLI, par exemple dans un environnement où le dossier personnel est inaccessible. Un sous-dossier propre à chaque projet y est créé. Choisir un emplacement privé hors Git ; réutiliser le même dossier pour retrouver l’historique. Cette option ne change pas les emplacements propres au coffre, au gardien ou à la veille réseau.
-
-Le [coffre local](COFFRE.md), accessible par `/coffre`, conserve vos cookies, mots de passe et jetons fournis explicitement, chiffrés par phrase de passe sur votre appareil. Le mode `secret` ajoute un secret et `voir` révèle sa valeur dans le terminal après confirmation et déverrouillage. Les valeurs ne sont pas ajoutées au modèle ou à l’historique. Le stockage n’autorise pas l’utilisation par un outil ; aucun branchement à `mon-secret-cookie` n’est encore effectué.
-
-Les échanges, résultats de commandes et sauvegardes des fichiers modifiés restent dans `~/.local/share/prevost-ia-local/<empreinte-du-chemin-du-projet>/`, hors du dépôt. À la réouverture du même dossier, les vingt derniers messages sont repris, avec une lecture bornée à 200 Ko d’historique. Le fichier de journal est privé (mode 600), son dossier en mode 700. Les sauvegardes permettent une restauration manuelle ; aucune suppression automatique n’est effectuée. Déplacer le projet change son identifiant de mémoire.
-
-Le `.gitignore` exclut aussi les historiques, mémoires locales, secrets, `.env`, poids GGUF et rapports d’audit éventuellement créés dans le dépôt. Ne pas utiliser `git add -f` pour ces données.
-
-## Contrôle et limites
-
-Les outils de fichiers sont limités au dossier choisi : chemins relatifs, refus des traversées, liens symboliques et physiques, métadonnées `.git`, fichiers non UTF-8 et contenus de plus de 200 Ko. Chaque écriture affiche les différences et exige une confirmation. L’application ne fournit aucune commande de suppression.
-
-Les commandes sont exécutées **sur l’hôte avec les droits de votre compte**, après présentation du dossier, des arguments et du délai. Elles ne sont pas isolées : elles peuvent accéder au réseau, supprimer des données, transmettre des fichiers et modifier le système. La confirmation couvre exactement la commande affichée ; inspecter aussi le programme ou les tests appelés, surtout s’ils ont été générés. Aucun shell implicite, aucune saisie interactive transmise au sous-processus. Un shell peut néanmoins être lancé explicitement si vous le confirmez. Les descendants du même groupe sont arrêtés après la commande ou à l’expiration ; un processus qui se détache peut échapper à cet arrêt.
-
-La sortie est collectée dans un fichier temporaire et affichée à la fin, limitée à 200 Ko à la lecture. Le fichier temporaire peut grossir pendant l’exécution : éviter les commandes produisant une sortie illimitée. Le délai réseau est un délai d’inactivité, pas une durée totale de génération. Le journal local peut grossir au fil des missions.
-
-Les données de fichiers et résultats ne sont jamais exécutés comme instructions par l’application. Une consigne système demande aussi au modèle de les traiter comme données ; cela ne garantit pas l’immunité du modèle aux injections. Chaque action proposée reste soumise à votre confirmation. Ne pas lire de secrets dans une conversation. Une adresse Ollama distante exige une confirmation de transmission avant utilisation ; aucune redirection HTTP ni proxy implicite n’est suivi.
-
-Les outils Kali/REA du registre sont décrits dans [OUTILS.md](OUTILS.md). L’inventaire réseau consenti est décrit dans [RESEAUX.md](RESEAUX.md). Le scan actif Nmap est proposé uniquement sur demande explicite de l’utilisateur, avec cible exacte et confirmation distincte. Aucun audit n’est déclenché par l’inventaire ou une réponse du modèle. Aucun téléchargement de modèles ou changement des lanceurs installés n’est ajouté.
-
-## Vérification
+## Démarrage
 
 ```bash
-python3 -B -m unittest discover -s tests -v
+python3 -m prevost --diagnostic                       # adresse Ollama et modèles installés
+python3 -m prevost --project ~/mon-projet             # lancer l’assistant
+python3 -m prevost --project ~/mon-projet --model NOM --timeout 30
 ```
 
-Voir [VALIDATION.md](VALIDATION.md) pour distinguer les essais locaux réels, les simulations et les blocages Ollama.
+- Le dossier du projet doit déjà exister.
+- Adresse Ollama : `--ollama`, puis `OLLAMA_HOST`, puis `http://127.0.0.1:11434`. Une adresse distante exige une confirmation avant toute transmission.
+- Seuls les modèles retournés par Ollama peuvent être choisis ; PRÉVOST n’en télécharge, n’en installe et n’en modifie aucun.
+- Le choix fait dans `/modeles` est mémorisé comme modèle par défaut du projet (fichier privé) et repris au lancement suivant s’il est toujours installé.
+- `--timeout` : délai maximal des commandes (300 s au plus). `--http-timeout` : délai d’inactivité réseau. `--state-dir` : dossier des historiques.
+- Sans Ollama, les commandes manuelles restent disponibles.
+
+## Commandes
+
+| Commande | Effet |
+| --- | --- |
+| texte libre | conversation en français, réponse en streaming |
+| `/coder demande` | plan de fichiers, commandes et contrôles, avec confirmations |
+| `/lire chemin` | lire un fichier UTF-8 et l’ajouter au contexte |
+| `/ecrire chemin` | saisir un fichier (finir par `.fin`), aperçu puis confirmation |
+| `/commande args` | proposer une commande sans shell, puis confirmer |
+| `/annuler FICHIER` | restaurer une sauvegarde après aperçu et confirmation |
+| `/memoire` · `/memoire note TEXTE` · `/memoire effacer` | mémoire du projet |
+| `/agent demande` · `/outils` | mission par outils validés · registre |
+| `/modeles` · `/historique` · `/aide` · `/quitter` | utilitaires |
+| `/scan [cible]` · `scan complet` | `nmap -v -A CIBLE` avec autorisation distincte |
+| `/reseaux` · `/veille-reseau` · `/appareils` · `/arreter-reseau` · `/retirer-reseau ID` | inventaire réseau consenti |
+| `/coffre` | coffre local chiffré ([COFFRE.md](COFFRE.md)) |
+
+Pour modifier un fichier existant : le lire avec `/lire`, puis `/coder` en décrivant la modification.
+
+L’interface utilise un fond noir, PRÉVOST en rouge, les réponses en bleu ciel `#87CEEB`, les outils en jaune `#FFFF00`, la saisie et les résultats bruts en blanc. Les séquences de contrôle venant du modèle ou des fichiers sont neutralisées ; les couleurs sont coupées hors terminal ou avec `NO_COLOR=1`.
 
 ## Programmation fiable avec `/coder`
 
-- **Correction automatique** : si une commande ou un contrôle échoue, la demande d’origine, le contenu actuel des fichiers et l’erreur réelle (données non fiables) repartent au modèle. Le plan corrigé repasse par les mêmes aperçus et confirmations `oui`. Deux essais au maximum ; un refus, une annulation ou un délai arrête tout. Le bilan indique le nombre d’essais.
-- **Plans cassés refusés avant écriture** : syntaxe de chaque `.py` vérifiée sans l’exécuter, plan JSON tronqué détecté, avertissement si la demande dit « lance » ou « teste » sans commande. Le modèle est redemandé une seule fois, sans rien afficher ; si le plan reste inutilisable, rien n’est écrit.
-- **Plan lisible** : fichiers, commandes et contrôles s’affichent en texte avant les aperçus.
-- **Mémoire du projet** : `/memoire` (voir), `/memoire note TEXTE`, `/memoire effacer` (confirmation `oui`). Seuls des faits vérifiés par le code (mission, fichiers écrits avec empreinte, commandes avec code retour, bilan) et vos notes sont gardés, sans sorties complètes, et les motifs de secrets sont masqués. Au plus 2 Ko des derniers faits sont injectés, étiquetés « données non fiables ». Fichier `memory.jsonl` en mode 600 dans le dossier d’état privé (700, hors Git).
-- **`/annuler FICHIER`** : liste les sauvegardes enregistrées, montre la différence, restaure après confirmation `oui`.
+1. **Plan sans bruit** : le modèle est interrogé sans rien afficher. Le plan apparaît ensuite en texte (fichiers, commandes, contrôles), avant les aperçus.
+2. **Plans cassés refusés avant écriture** : syntaxe de chaque `.py` vérifiée sans l’exécuter, JSON tronqué détecté, avertissement si la demande dit « lance » ou « teste » sans commande. Le modèle est redemandé **une seule fois** ; si le plan reste inutilisable, rien n’est écrit.
+3. **Confirmations** : chaque écriture (avec différences) et chaque commande exigent un `oui` exact. Un refus interrompt la mission.
+4. **Double vérification Python** : pour chaque `.py` écrit, compilation puis exécution confirmée avec code retour 0 et sortie exactement égale à `expected_stdout`. Le bilan `double_verification_reussie` ne prouve ni tous les comportements, ni les dépendances, ni la sécurité. Une exécution silencieuse ne teste pas les fonctions : prévoir une suite de tests.
+5. **Correction automatique** : si une commande ou un contrôle échoue, la demande d’origine, le contenu actuel des fichiers et l’erreur réelle (données non fiables) repartent au modèle. Le plan corrigé repasse par les mêmes aperçus et confirmations. **Deux essais au maximum** ; un refus, une annulation ou un délai arrête tout ; une correction identique au plan précédent aussi. Le bilan indique le nombre d’essais.
 
 ## Banc d’essai de modèles
 
@@ -91,131 +83,79 @@ Voir [VALIDATION.md](VALIDATION.md) pour distinguer les essais locaux réels, le
 python3 -m prevost bench --model NOM          # répéter --model, ou --model tous
 ```
 
-Quatre missions fixes (bonjour, calcul avec test, 10 premiers nombres premiers, gestionnaire de tâches) sont lancées dans un dossier temporaire supprimé à la fin. Chaque critère est vérifié par le banc lui-même, indépendamment des contrôles du modèle ; le résultat est un tableau OK/ÉCHEC par critère et par modèle.
+Quatre missions fixes (bonjour, calcul avec test, 10 premiers nombres premiers, gestionnaire de tâches) tournent dans un dossier temporaire supprimé à la fin. Chaque critère est vérifié par le banc lui-même, indépendamment des contrôles du modèle ; le résultat est un tableau OK/ÉCHEC par critère et par modèle.
 
-**Exception à la règle des confirmations** : le banc demande **une seule** confirmation `oui` exacte au départ, puis écrit les fichiers proposés par le modèle et exécute Python sur ce code sans confirmer chaque action, avec vos droits et sans isolation. Ne le lancer que sur un appareil où c’est acceptable. Les modèles ne sont ni modifiés ni remplacés.
+> **Exception à la règle des confirmations** : le banc demande **une seule** confirmation `oui` exacte au départ, puis écrit les fichiers proposés par le modèle et exécute Python sur ce code sans confirmer chaque action, avec vos droits et sans isolation. À lancer seulement sur un appareil où c’est acceptable.
 
-Non implémentés (prévus plus tard) : outil web en lecture seule et description d’image par modèle de vision.
+## Mémoire, historique et sauvegardes
 
-## Gardien numérique — diagnostic du PC LexOS
+Tout est stocké hors du dépôt, dans `~/.local/share/prevost-ia-local/<empreinte-du-projet>/` (ou `--state-dir`), dossier en mode 700, fichiers en mode 600. Déplacer le projet change son identifiant. Le `.gitignore` exclut historiques, secrets, `.env`, poids GGUF et rapports ; ne jamais utiliser `git add -f` dessus.
 
-Dans Termux, le gardien identifie son environnement Android, mesure le stockage du dossier personnel et indique les contrôles systemd comme indisponibles sans les exécuter. Les autres collectes restent soumises aux permissions Android ; voir [TERMUX.md](TERMUX.md).
+- **Historique** : les 20 derniers messages sont repris à la réouverture (lecture bornée à 200 Ko).
+- **Sauvegardes** : chaque fichier modifié est sauvegardé ; `/annuler FICHIER` les liste, montre la différence et restaure après confirmation (les sauvegardes antérieures à cette version ne sont pas listées). Aucune suppression automatique.
+- **Mémoire du projet** (`/memoire`) : seuls des faits vérifiés par le code (mission, fichiers écrits avec empreinte, commandes avec code retour, bilan) et vos notes sont gardés, sans sorties complètes, avec masquage des motifs de secrets. Au plus 2 Ko des derniers faits sont injectés au début d’une mission, étiquetés « données non fiables ».
+- **Apprentissage** : l’agent (`/agent`) retient ses appels échoués (outil, statut, erreur courte) dans `lessons.jsonl` et les relit comme données non fiables pour ne pas répéter la même erreur.
+- **Coffre** : cookies, mots de passe et jetons, chiffrés par phrase de passe, jamais envoyés au modèle ni à l’historique.
 
-L’agent de programmation est conservé. Un module distinct fournit un diagnostic déterministe, sans Ollama et sans commandes proposées par un modèle :
+## Règles de sécurité
+
+- Les fichiers sont limités au dossier choisi : chemins relatifs, refus des traversées, des liens symboliques et physiques, de `.git`, des fichiers non UTF-8 et de plus de 200 Ko. Aucune commande de suppression n’est fournie.
+- Les commandes s’exécutent **sur l’hôte avec les droits de votre compte**, sans isolation : réseau, suppressions et modifications système sont possibles. La confirmation couvre exactement la commande affichée ; inspecter aussi le programme ou les tests appelés. Aucun shell implicite ni saisie interactive. Les descendants du groupe sont arrêtés à la fin ou à l’expiration ; un processus détaché peut y échapper.
+- La sortie est limitée à 200 Ko à la lecture ; le fichier temporaire peut grossir pendant l’exécution.
+- Les réponses du modèle, les fichiers et les sorties de commandes sont des **données non fiables**, jamais des instructions. Une consigne système le rappelle au modèle, sans garantir son immunité aux injections.
+- Ne jamais saisir de secrets dans la conversation. Aucune redirection HTTP ni proxy implicite n’est suivi.
+
+## Gardien numérique
+
+Diagnostic déterministe du PC courant, en **lecture seule**, sans Ollama et sans commande proposée par un modèle :
 
 ```bash
-python3 -m prevost.guardian diagnostic
-python3 -m prevost.guardian diagnostic --json
+python3 -m prevost.guardian diagnostic [--json]
+python3 -m prevost.guardian veille --cycles 0 --interval 60   # au premier plan, jusqu’à Ctrl+C
 ```
 
-Il présente l’inventaire explicite du seul appareil courant (`pc-local`), le périmètre autorisé, l’espace disque de `/`, les unités systemd échouées (utilisateur et système), les ports TCP/UDP en écoute et les mises à jour signalées dans le cache APT. Aucun scan, aucune requête aux appareils voisins, aucun rafraîchissement APT, aucun changement système. Le diagnostic seul ne crée aucun journal. L’identité `pc-local` désigne l’environnement où la commande tourne, pas une preuve que l’ensemble du PC est visible depuis un bac à sable.
+Contrôles : disque, charge CPU, mémoire, unités systemd échouées (utilisateur et système), ports TCP/UDP en écoute, mises à jour du cache APT. Chaque collecte garde sa source, sa sortie, ses erreurs et son état ; une collecte refusée est « indisponible » même avec le code 0. Les recommandations distinguent constat et point à vérifier, avec confiance et retour arrière ; aucune n’est appliquée.
 
-Chaque collecte conserve sa source, sa sortie, ses erreurs et son état. Une collecte refusée est indisponible, même quand le programme termine avec le code 0. Les recommandations distinguent constat et point à vérifier, précisent la confiance et le retour arrière. Aucune recommandation n’est appliquée. Puisqu’il n’y a aucun changement système, le retour arrière consiste actuellement à ne rien restaurer ; toute future correction devra définir son propre plan de restauration avant confirmation.
+La veille écrit `watch.json` et `incidents.jsonl` dans `~/.local/share/prevost-ia-local/guardian/` (mode 600/700). Alertes : changement d’une liste observée, moins de 10 % d’espace libre, moins de 10 % de mémoire disponible, charge à 5 min supérieure à 1,5 fois le nombre de processeurs, échec de collecte. Une même empreinte n’est signalée qu’une fois. Aucun service de fond ni démarrage automatique : quand la commande s’arrête, la surveillance s’arrête. Une seule instance par dossier d’état.
 
-### Veille explicite
+**Limites** : PC courant seulement ; disque racine sans SMART ; services échoués seulement ; ports sans attribution à un programme ni preuve d’exposition ; mises à jour issues du cache APT ; un bac à sable peut masquer l’hôte. Le diagnostic constate des faits, il ne certifie pas la sécurité. Termux : voir [TERMUX.md](TERMUX.md).
 
-```bash
-# Une collecte avec journal et référence pour la prochaine fois
-python3 -m prevost.guardian veille
+## Agent et outils vérifiés
 
-# Trois collectes à une minute d’intervalle
-python3 -m prevost.guardian veille --cycles 3 --interval 60
-
-# Boucle au premier plan, jusqu’à Ctrl+C
-python3 -m prevost.guardian veille --cycles 0 --interval 60
-```
-
-Seule la veille écrit ses propres données locales : `~/.local/share/prevost-ia-local/guardian/watch.json` contient le dernier diagnostic et la référence ; `incidents.jsonl` contient les alertes et le journal des collectes. Les fichiers sont de mode 600, le dossier de mode 700. `--state-dir DOSSIER` choisit un autre emplacement. Garder ces données privées et hors Git. Aucun service de fond ni démarrage automatique n’est installé. Quand la commande s’arrête, la surveillance s’arrête ; PRÉVOST ne prétend pas protéger les périodes non observées.
-
-Les alertes sont affichées dans le terminal et inscrites au journal, sans notification externe. Elles signalent les changements des listes observées, le passage sous 10 % d’espace libre et les échecs de collecte. Le premier relevé sert de référence ; les échecs et anomalies de disque/services présents dès ce relevé sont signalés immédiatement. L’espace disque ne déclenche pas une alerte à chaque octet : seul le seuil est comparé.
-
-La déduplication persiste entre lancements : une même empreinte « contrôle + état observé » est signalée une seule fois dans ce journal, même si elle réapparaît après une résolution. Cela réduit les répétitions, mais ne compte pas les récidives. Les variations entre deux collectes peuvent être manquées. Le journal et la liste d’empreintes ne sont pas purgés automatiquement. Lancer une seule instance de veille par dossier d’état ; aucune coordination entre instances concurrentes n’est implémentée.
-
-### Limites actuelles
-
-- Inventaire limité au PC courant ; aucun ajout ou suivi d’autre appareil dans cette version.
-- Disque racine seulement, sans SMART ni surveillance de contenu des fichiers.
-- Services échoués seulement, sans liste personnalisée des services attendus.
-- Ports de l’espace réseau visible seulement ; aucune attribution à un programme ni preuve d’exposition externe.
-- Mises à jour issues du cache APT : fraîcheur et pertinence non garanties, aucune évaluation automatique des vulnérabilités.
-- Le diagnostic constate des faits de collecte, pas une certification de sécurité. Les collectes indisponibles restent inconnues.
-- Aucun pare-feu, redémarrage, installation, suppression ou autre mesure de protection sensible n’est exécuté par ce module.
-
-## Agent utilisant des outils
-
-Le registre et la nouvelle boucle de mission sont documentés dans [OUTILS.md](OUTILS.md). Exemple :
+`/agent demande` (ou `python3 -m prevost.agent mission …`) lance une boucle bornée où le modèle propose une étape JSON, validée et vérifiée par Python. Registre fermé : lecture et écriture de fichiers du projet, liste et recherche de texte, exécution de Python et de `unittest`, état Git, disque, ports, services, REA et outils Kali **passifs** (`file`, `strings`, inventaire, sans cible réseau). Détails, contrats et limites : [OUTILS.md](OUTILS.md).
 
 ```bash
 python3 -m prevost.agent catalogue --project /chemin/du/projet
 python3 -m prevost.agent demo --project /un/dossier/temporaire
 ```
 
-Dans la conversation : `/outils` et `/agent demande`. Les rapports restent locaux et exclus de Git.
+## Réseau et scan
 
-## Inventaire des réseaux approuvés
+- **Inventaire consenti** : `python3 -m prevost.network veille` (ou `/veille-reseau`) demande une fois le périmètre et l’autorisation, puis inventorie les réseaux approuvés. Les nouveaux candidats restent « à valider » ; aucune autorisation d’audit n’est déduite. Voir [RESEAUX.md](RESEAUX.md).
+- **Scan Nmap sur demande** : `scan complet` ou `/scan CIBLE` propose exactement `nmap -v -A CIBLE` (1 000 ports TCP, sans UDP) pour une seule IPv4 ou un seul nom DNS, avec une autorisation distincte confirmée. URL, CIDR, plages et options supplémentaires sont refusés. Aucune cible n’est déduite de l’historique, de l’inventaire ou d’une réponse du modèle. Un échec de résolution est signalé comme une absence de scan, même avec le code 0.
 
-`python3 -m prevost.network veille` (ou `/veille-reseau` dans la conversation) identifie les connexions, demande une seule fois leur périmètre et l’autorisation explicite, puis inventorie automatiquement les réseaux approuvés. Les nouveaux candidats restent « à valider » ; aucune autorisation d’audit n’est déduite de la découverte.
+## Samsung Recovery
 
-`python3 -m prevost.network arreter` arrête la veille ; `python3 -m prevost.network retirer --network IDENTIFIANT` retire une autorisation. `/reseaux`, `/arreter-reseau` et `/retirer-reseau IDENTIFIANT` sont aussi disponibles. L’état reste privé hors Git. Voir [RESEAUX.md](RESEAUX.md) pour les commandes d’approbation, les prérequis et les limites.
-
-## Scan Nmap demandé par l’utilisateur
-
-Saisir `scan complet` ou même `scam complet` ouvre un dialogue déterministe, sans transmettre cette demande à Ollama : choisir une IPv4 ou un nom DNS exact, vérifier la commande et confirmer avec `oui` que ce scan actif est autorisé sur cette cible. `/scan scanme.nmap.org` ouvre directement la même proposition. Aucune cible n’est déduite de l’historique ou de l’inventaire. Une réponse du modèle contenant ces mots ne déclenche rien.
-
-Le profil demandé est exactement `nmap -v -A CIBLE`. `-A` active versions, scripts par défaut, détection du système et traceroute selon les droits disponibles ; ce profil conserve la sélection habituelle de 1 000 ports TCP, sans couvrir tous les ports ni UDP. Voir les documentations officielles des [options Nmap](https://nmap.org/book/man-briefoptions.html) et de la [sélection des ports](https://nmap.org/book/man-port-specification.html). Seule une cible est acceptée ; URL, CIDR, plage et options supplémentaires sont refusés par `/scan`. Les commandes manuelles `/commande` conservent leur fonctionnement et leur confirmation habituels.
-
-Le délai est celui de `--timeout` (30 secondes par défaut, maximum 300) ; pour laisser davantage de temps, relancer PRÉVOST avec `python3 -m prevost --project . --timeout 300`. Les sorties sont affichées à la fin et conservées localement dans l’état privé du projet, jamais envoyées automatiquement au modèle. Un échec de résolution est signalé comme une absence de scan même si Nmap retourne 0. Aucun recours automatique à `sudo` et aucun changement de cible si la commande échoue.
-
-
-
-## Samsung Recovery — PRÉVOST V20
-
-L’[outil Python Samsung Recovery](samsung-recovery/README-V20.md) fournit une détection
-USB automatique, l’identification des transports MTP/ADB/Recovery, l’analyse des rapports
-V17/V18/V19 et un assistant de récupération officielle Google/Samsung/Bell. Les fonctions
-de PRÉVOST IA ci-dessus sont conservées.
+Outils Python de diagnostic et de récupération officielle Google/Samsung/Bell, dans [`samsung-recovery/`](samsung-recovery/) :
 
 ```bash
 cd samsung-recovery
-python3 prevost-samsung recuperation
-python3 prevost-samsung recuperation --diagnostic
-python3 prevost-samsung recuperation --rapport
-python3 -m unittest discover -s tests -v
+python3 prevost-samsung recuperation [--diagnostic | --rapport]   # V20
+./prevost-samsung diagnostic-v21 [--rapport]                       # V21
 ```
 
-Le menu terminal propose V20 au choix 11. Chaque collecte crée un rapport JSON/TXT et,
-en mode complet, des demandes Samsung/Bell non envoyées. Le mode `--rapport` consulte
-seulement le dernier relevé local. Les anciennes commandes V16/V18/V19 restent disponibles.
-Aucun contournement FRP, effacement, flash, changement du téléphone ni extraction de secrets.
-Sans compte Google antérieurement synchronisé ou solution de propriété acceptée par le
-prestataire officiel, la remise en service reste bloquée ; aucun déblocage garanti.
+- **V20** : détection USB, identification MTP/ADB/Recovery, analyse des rapports V17 à V19 et assistant de récupération. Voir [README-V20](samsung-recovery/README-V20.md) et le [rapport](samsung-recovery/rapports/v20/RAPPORT-V20.md).
+- **V21** : restrictions du processus, listener local, permissions USB, états ADB/MTP ; rapport privé et archive `partage.zip` par liste blanche (seule destinée à être transmise). Voir [README-V21](samsung-recovery/README-V21.md) et le [rapport](samsung-recovery/rapports/v21/RAPPORT-V21.md).
+- Aucun contournement FRP, effacement, flash, modification du téléphone ni extraction de secrets. Sans compte Google antérieur ou solution de propriété acceptée par le prestataire, la remise en service reste bloquée. Rapports bruts et justificatifs personnels restent locaux. Voir la [validation de publication](samsung-recovery/VALIDATION-PUBLICATION.md).
 
-Les [conclusions V20](samsung-recovery/rapports/v20/RAPPORT-V20.md), les sources et 90 tests
-Samsung sont inclus. Les rapports bruts du téléphone et les justificatifs personnels restent
-locaux. Voir la [validation de publication](samsung-recovery/VALIDATION-PUBLICATION.md).
-
-
-## Samsung V21 — diagnostic USB et rapports masqués
-
-Le [diagnostic V21](samsung-recovery/README-V21.md) complète V20 avec des mesures de
-restrictions du processus, de listener local, de permissions des nœuds USB et des états
-ADB/MTP. Il conserve les commandes antérieures et ajoute le choix 12 au menu Samsung.
+## Tests
 
 ```bash
-cd samsung-recovery
-./prevost-samsung diagnostic-v21
-./prevost-samsung diagnostic-v21 --rapport
+python3 -B -m unittest discover -s tests -v                       # application PRÉVOST
+cd samsung-recovery && python3 -B -m unittest discover -s tests   # Samsung (depuis ce dossier)
 ```
 
-Chaque collecte crée un rapport privé et une archive `partage.zip` par liste blanche.
-Seule cette archive est destinée à être transmise ; la détection USB ne prouve aucun
-accès aux données. Aucun changement téléphone ou contournement FRP.
-
-[Résultats V21 et limites](samsung-recovery/rapports/v21/RAPPORT-V21.md) : 114 tests
-Samsung réussis, dont 24 nouveaux. Les 91 tests de l’application IA existante ont aussi
-été lancés : 89 réussis, deux lancements CLI bloqués par l’historique en lecture seule
-dans le sandbox. Cette version est préparée sur `feature/samsung-recovery-v21`, en
-pull request avant fusion. Aucun rapport privé ou justificatif personnel publié.
+[VALIDATION.md](VALIDATION.md) distingue ce qui est testé pour de vrai de ce qui est simulé ; notamment, aucune réponse de modèle réel n’y est validée.
 
 ## Licence
 
