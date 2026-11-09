@@ -4,6 +4,7 @@ import json
 from pathlib import Path
 import sys
 import tempfile
+import time
 import unittest
 from unittest.mock import patch
 
@@ -195,6 +196,18 @@ class CoderLoopTests(unittest.TestCase):
         self.assertIsNone(self.run_mission(model, timeout=.3))
         self.assertEqual(len(model.calls), 1)
         self.assertEqual(self.outcomes(), ['delai_depasse'])
+
+    def test_slow_human_confirmation_does_not_eat_the_execution_budget(self):
+        # Régression : lire le code avant de répondre « oui » ne doit pas faire expirer le contrôle.
+        def slow_confirm(text):
+            self.proposals.append(text)
+            if text.startswith('Action sensible'):
+                time.sleep(1.8)
+            return True
+        self.ui.confirm = slow_confirm
+        result = self.run_mission(Script(plan()), timeout=1.5)
+        self.assertEqual(result['status'], 'double_verification_reussie')
+        self.assertEqual(self.outcomes(), ['double_verification_reussie'])
 
     def test_correction_that_is_itself_broken_gets_one_retry_only(self):
         model = Script(plan(code='print("faux")\n'), plan()[:30], plan()[:35])

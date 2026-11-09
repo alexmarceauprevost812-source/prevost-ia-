@@ -293,6 +293,8 @@ QUOTE_HINT = ('Dans une chaîne JSON, échappe chaque guillemet double ainsi : \
 RUN_REQUEST = re.compile(r'\b(?:lanc\w*|test\w*|ex[ée]cut\w*|roul\w*|v[ée]rifi\w*)\b', re.IGNORECASE)
 PYTHON_NAME = re.compile(r'python3?(?:\.\d+)?')
 PREVIOUS_LIMIT = 8_000
+# Le temps passé à lire le code avant de confirmer ne doit pas consommer le délai d’exécution.
+CONFIRMATION_SECONDS = 900
 FAILURE_LIMIT = 2_000
 
 
@@ -412,7 +414,7 @@ def run_plan(project, ui, files, commands, checks, timeout, results):
     registry = Registry(project, ui.confirm, discover=False)
     registry.tools['python.run'].timeout = timeout
     for check in checks:
-        result = registry.execute('python.run', check, remaining=timeout)
+        result = registry.execute('python.run', check, remaining=timeout + CONFIRMATION_SECONDS)
         results.append(result)
         ui.tool('Double vérification : ' + check['path'])
         ui.raw(json.dumps(result, ensure_ascii=False, indent=2))
