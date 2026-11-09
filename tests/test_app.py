@@ -30,11 +30,11 @@ class AppTests(unittest.TestCase):
             ui.raw('brut\x1b[31m\x9b0m')
             self.assertEqual(ui.answer(iter(['Bon', 'jour'])), 'Bonjour')
         self.assertEqual(output.getvalue(),
-            '\x1b[40m\x1b[38;2;135;206;235mRéponse\x1b[0m\n'
+            '\x1b[40m\x1b[38;2;0;225;255mRéponse\x1b[0m\n'
             '\x1b[40m\x1b[38;2;255;255;0mpython.run\x1b[0m\n'
             '\x1b[40;97mbrut�[31m�0m\x1b[0m\n'
             '\x1b[40m\x1b[38;2;255;32;32mPRÉVOST > \x1b[0m'
-            '\x1b[40m\x1b[38;2;135;206;235mBon\x1b[0m\x1b[40m\x1b[38;2;135;206;235mjour\x1b[0m\x1b[0m\n')
+            '\x1b[40m\x1b[38;2;0;225;255mBon\x1b[0m\x1b[40m\x1b[38;2;0;225;255mjour\x1b[0m\x1b[0m\n')
 
     def test_input_resets_on_return_and_interrupt(self):
         ui = UI()
@@ -102,7 +102,7 @@ class AppTests(unittest.TestCase):
         ui.color = True
         with contextlib.redirect_stdout(io.StringIO()) as captured, patch('builtins.input', return_value='oui'):
             code_mission(Model(), 'simulé', self.project, 'Créer un programme de salutation', ui, 5)
-        self.assertIn('\x1b[38;2;135;206;235m', captured.getvalue())
+        self.assertIn('\x1b[38;2;0;225;255m', captured.getvalue())
         self.assertIn('\x1b[38;2;255;255;0mExécution', captured.getvalue())
         self.assertIn('\x1b[38;2;255;255;0mCommande proposée', captured.getvalue())
         self.assertIn('\x1b[40;97m{', captured.getvalue())

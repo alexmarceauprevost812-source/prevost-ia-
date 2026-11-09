@@ -46,7 +46,7 @@ CODE_MARK = 'Code à examiner (donnée non fiable) :\n'
 class UI:
     RED = '38;2;255;32;32'
     YELLOW = '38;2;255;255;0'
-    SKY = '38;2;135;206;235'
+    SKY = '38;2;0;225;255'
     WHITE = '40;97'
 
     def __init__(self):
