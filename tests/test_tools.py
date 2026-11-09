@@ -88,6 +88,22 @@ class ToolsTests(unittest.TestCase):
         self.assertEqual(run.call_args.args[0][-5:], ['kali-lexos', 'strings', '-a', '-n', '6'])
         self.assertEqual(self.registry.execute('kali.file', {'path': 'absent.bin'})['status'], 'error')
 
+    def test_failures_are_learned_and_deduplicated(self):
+        bad = {'path': 'absent.py', 'expected_stdout': 'x'}
+        for _ in range(2):
+            self.registry.execute('python.run', bad)
+        Agent(self.registry, self.ui).run('Essai', scripted([{'plan': 'Lire.', 'tool': 'project.read', 'parameters': {'path': 'absent.txt'}}]), 'reports/l.md')
+        lessons = self.registry.lessons()
+        self.assertEqual(len(lessons), 1)
+        self.assertEqual((lessons[0]['tool'], lessons[0]['status'], lessons[0]['path']), ('project.read', 'error', 'absent.txt'))
+        self.assertEqual(self.registry.lessons_file.stat().st_mode & 0o777, 0o600)
+        self.registry.learn(self.registry.execute('python.run', bad))
+        self.registry.learn({'tool': 'python.run', 'status': 'error', 'verified': False, 'parameters': bad, 'error': 'boom'})
+        self.registry.learn({'tool': 'python.run', 'status': 'error', 'verified': False, 'parameters': bad, 'error': 'boom'})
+        self.assertEqual(self.registry.lessons()[0]['count'], 2)
+        self.registry.learn({'tool': 'local.disk', 'status': 'ok', 'verified': True, 'parameters': {}})
+        self.assertNotIn('local.disk', [row['tool'] for row in self.registry.lessons()])
+
     def test_closed_schema_and_scope(self):
         for name, params in [('project.read', {'path': '../bad'}),
                              ('local.disk', {'target': '192.0.2.1'}),

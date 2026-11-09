@@ -206,6 +206,21 @@ class AppTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 choose(client, UI(), 'invented')
 
+    def test_default_model_is_saved_and_reused(self):
+        client = Ollama('http://localhost:11434')
+        with tempfile.TemporaryDirectory() as folder, patch.object(client, 'models', return_value=['a', 'b']):
+            store = Path(folder)/'default_model'
+            ui = UI(); ui.show = lambda _: None; ui.read = lambda _: '2'
+            self.assertEqual(choose(client, ui, store=store), 'b')
+            self.assertEqual(store.stat().st_mode & 0o777, 0o600)
+            ui.read = lambda _: self.fail('aucune question attendue')
+            self.assertEqual(choose(client, ui, store=store), 'b')
+            ui.read = lambda _: '1'
+            self.assertEqual(choose(client, ui, store=store, use_saved=False), 'a')
+            self.assertEqual(choose(client, ui, store=store), 'a')
+            store.write_text('disparu\n')
+            self.assertEqual(choose(client, ui, store=store), 'a')
+
     def test_bad_plan_has_no_partial_write(self):
         class Model:
             def chat(self, *args, **kwargs):

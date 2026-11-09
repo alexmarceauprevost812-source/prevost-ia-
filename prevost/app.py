@@ -262,7 +262,8 @@ class Project:
         return result
 
 
-def choose(client, ui, requested=None):
+def choose(client, ui, requested=None, store=None, use_saved=True):
+    """Choisit un modèle installé ; `store` mémorise le choix comme modèle par défaut (fichier privé)."""
     models = client.models()
     if not models:
         raise ValueError('Aucun modèle installé retourné par Ollama.')
@@ -270,11 +271,20 @@ def choose(client, ui, requested=None):
         if requested not in models:
             raise ValueError('Modèle absent : ' + requested)
         return requested
+    if store is not None and use_saved and store.is_file():
+        saved = store.read_text(encoding='utf-8').strip()
+        if saved in models:
+            ui.show('Modèle par défaut : ' + saved + ' (/modeles pour en changer)')
+            return saved
+        ui.show('Modèle par défaut absent d’Ollama : ' + saved + ' ; choisir un modèle.')
     for i, name in enumerate(models, 1):
         ui.show(f'{i}. {name}')
     selection = int(ui.read('Numéro du modèle > '))
     if not 1 <= selection <= len(models):
         raise ValueError('Sélection invalide.')
+    if store is not None:
+        store.write_text(models[selection - 1] + '\n', encoding='utf-8')
+        os.chmod(store, 0o600)
     return models[selection - 1]
 
 
@@ -430,7 +440,7 @@ def main(argv=None):
         if not client.local and not ui.confirm('Ollama est distant : confirmer la transmission du contexte à ' + client.address):
             return 1
         try:
-            model = choose(client, ui, args.model)
+            model = choose(client, ui, args.model, project.state/'default_model')
         except Exception as error:
             ui.show(f'Ollama non disponible : {error}. Outils manuels disponibles ; /modeles pour réessayer.')
             model = None
@@ -445,7 +455,7 @@ def main(argv=None):
                 if verb == '/aide':
                     ui.show(HELP)
                 elif verb == '/modeles':
-                    model = choose(client, ui)
+                    model = choose(client, ui, store=project.state/'default_model', use_saved=False)
                 elif verb == '/outils':
                     from .tools import Registry
                     ui.tool(json.dumps(Registry(project, ui.confirm).catalogue(), ensure_ascii=False, indent=2))
