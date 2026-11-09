@@ -136,3 +136,11 @@ validation, fichier non Python et protection du code contre son remplacement par
 rapport. Les tests `/coder` utilisent une génération de plan simulée, puis des écritures
 et exécutions réelles. Aucun nouveau résultat Ollama réel n’est revendiqué. Ces essais
 vérifient le mécanisme de validation, pas la qualité générale des programmes d’un modèle.
+
+## Plans refusés avant écriture, boucle de correction et mémoire — 9 novembre 2026
+
+Branche `totalité` (fusion de `main`, v2, Samsung V16–V21 et rea-prevost) : **142 tests** pour PRÉVOST (dont 32 nouveaux), **114** pour `samsung-recovery` et **16** pour `integration-rea`, tous réussis sous Linux avec `python3 -B -m unittest discover -s tests` (et `python3 -B -m unittest test_installer` dans `integration-rea`).
+
+Les nouveaux tests couvrent : JSON tronqué (une reprise, puis arrêt sans écriture), fichier Python qui ne compile pas, JSON invalide, demande « lance/teste » sans commande ni contrôle, contrôle ou commande visant un fichier inconnu, chemin dangereux non retenté ; correction après contrôle ou commande en échec avec preuve transmise, plafond de corrections (0, 1, 2), arrêt sur fichier refusé, commande ou contrôle non confirmé, délai dépassé ; mémoire (étiquette « non fiable », plafond de 2 Ko, enregistrement de toutes les issues, aucun code, sortie ni secret conservé, fichier privé en mode 600 hors du projet, fichier corrompu, `/memoire` et `--corrections` en ligne de commande).
+
+Limite : la génération du modèle est **simulée** dans ces tests ; les écritures, compilations, sous-processus et contrôles sont réels. Aucun essai Ollama réel de la boucle de correction n’est revendiqué : il reste à mesurer avec `prevost-codex:v4`, `qwen2.5-coder:7b` et `qwen3:8b` sur des missions réelles.
