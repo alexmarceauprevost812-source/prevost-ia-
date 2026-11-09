@@ -9,6 +9,8 @@ from unittest.mock import Mock, patch
 
 from prevost.guardian import CHECKS, Watch, canonical, collect, probe, recommendations, main
 
+from prevost.guardian import read_load, read_memory
+
 
 class GuardianTests(unittest.TestCase):
     def report(self):
@@ -100,5 +102,27 @@ class GuardianTests(unittest.TestCase):
             collector.assert_not_called()
 
 
-if __name__ == '__main__':
-    unittest.main()
+    def test_load_and_memory_checks_and_alerts(self):
+        self.assertTrue(read_load(lambda: (9.0, 8.0, 7.0), lambda: 2)['surcharge'])
+        self.assertFalse(read_load(lambda: (0.1, 0.2, 0.3), lambda: 2)['surcharge'])
+        with tempfile.TemporaryDirectory() as directory:
+            meminfo = Path(directory)/'meminfo'
+            meminfo.write_text('MemTotal:       1000 kB\nMemAvailable:     50 kB\n')
+            memory = read_memory(str(meminfo))
+            self.assertEqual(memory['pourcentage_disponible'], 5.0)
+            meminfo.write_text('MemTotal:       1000 kB\nMemAvailable:   5000 kB\n')
+            with self.assertRaises(ValueError):
+                read_memory(str(meminfo))
+            report = self.report()
+            report['controles']['memoire'] = memory
+            report['controles']['charge'] = read_load(lambda: (9, 9, 9), lambda: 2)
+            self.assertEqual({r['controle'] for r in recommendations(report)} & {'memoire', 'charge'}, {'memoire', 'charge'})
+            alerts = Watch(Path(directory)/'w').update(report)
+            self.assertEqual({a['controle'] for a in alerts} & {'memoire', 'charge'}, {'memoire', 'charge'})
+
+    def test_collect_survives_unreadable_memory(self):
+        def broken():
+            raise OSError('illisible')
+        report = collect(run=lambda argv: {'status': 'observe', 'commande': argv, 'sortie': '', 'erreur': ''}, memory=broken)
+        self.assertEqual(report['controles']['memoire']['status'], 'indisponible')
+        self.assertEqual(report['controles']['charge']['status'], 'observe')

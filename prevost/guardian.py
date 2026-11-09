@@ -45,7 +45,28 @@ def probe(argv, timeout=8):
         return {'status': 'indisponible', 'commande': argv, 'erreur': str(error), 'sortie': ''}
 
 
-def collect(run=probe, disk=shutil.disk_usage):
+def read_load(load=os.getloadavg, cpus=os.cpu_count):
+    one, five, fifteen = load()
+    count = cpus() or 1
+    return {'status': 'observe', 'source': 'os.getloadavg', 'charge_1_5_15': [round(one, 2), round(five, 2), round(fifteen, 2)],
+            'processeurs': count, 'surcharge': five > count * 1.5}
+
+
+def read_memory(path='/proc/meminfo'):
+    values = {}
+    for line in Path(path).read_text().splitlines():
+        name, _, rest = line.partition(':')
+        parts = rest.split()
+        if parts and parts[0].isdigit():
+            values[name] = int(parts[0]) * 1024
+    total, available = values['MemTotal'], values['MemAvailable']
+    if total <= 0 or not 0 <= available <= total:
+        raise ValueError('Mesure de mémoire incohérente.')
+    return {'status': 'observe', 'source': path, 'total': total, 'disponible': available,
+            'pourcentage_disponible': round(available / total * 100, 1)}
+
+
+def collect(run=probe, disk=shutil.disk_usage, load=read_load, memory=read_memory):
     checks = {}
     termux = is_termux()
     disk_path = str(Path.home()) if termux else '/'
@@ -59,6 +80,11 @@ def collect(run=probe, disk=shutil.disk_usage):
             'pourcentage_libre': round(usage.free / usage.total * 100, 1)}
     except (OSError, ValueError) as error:
         checks['disque'] = {'status': 'indisponible', 'chemin': disk_path, 'erreur': str(error)}
+    for name, reader in (('charge', load), ('memoire', memory)):
+        try:
+            checks[name] = reader()
+        except (OSError, ValueError, KeyError, AttributeError) as error:
+            checks[name] = {'status': 'indisponible', 'erreur': str(error)}
     for name, argv in CHECKS.items():
         if termux and name.startswith('services'):
             checks[name] = {'status': 'indisponible', 'commande': argv, 'sortie': '',
@@ -84,6 +110,10 @@ def canonical(name, check):
         return {'status': 'indisponible', 'erreur': check.get('erreur', '')}
     if name == 'disque':
         return {'status': 'observe', 'espace_faible': check['pourcentage_libre'] < 10}
+    if name == 'charge':
+        return {'status': 'observe', 'surcharge': check['surcharge']}
+    if name == 'memoire':
+        return {'status': 'observe', 'memoire_faible': check['pourcentage_disponible'] < 10}
     lines = check.get('sortie', '').splitlines()
     if name == 'mises_a_jour':
         lines = [line for line in lines if '/' in line and not line.startswith('Listing')]
@@ -101,6 +131,12 @@ def recommendations(report):
         elif name == 'disque' and check['pourcentage_libre'] < 10:
             item.update(nature='observe', constat=f"Moins de 10 % d’espace libre sur {check.get('chemin', '/')}.",
                 recommandation='Examiner les fichiers volumineux et préparer une sauvegarde avant toute suppression confirmée.')
+        elif name == 'charge' and check['surcharge']:
+            item.update(nature='observe', constat=f"Charge moyenne sur 5 min élevée : {check['charge_1_5_15'][1]} pour {check['processeurs']} processeur(s).",
+                recommandation='Identifier les processus gourmands depuis un terminal ; ne rien arrêter sans diagnostic et confirmation.')
+        elif name == 'memoire' and check['pourcentage_disponible'] < 10:
+            item.update(nature='observe', constat=f"Moins de 10 % de mémoire disponible ({check['pourcentage_disponible']} %).",
+                recommandation='Examiner la consommation mémoire des processus ; fermer des applications seulement après confirmation.')
         elif name.startswith('services') and check['sortie'].strip():
             item.update(nature='a_verifier', constat='Des unités sont signalées en échec par systemd.',
                 recommandation='Lire les journaux des unités concernées ; ne pas redémarrer sans diagnostic et confirmation.')
@@ -137,7 +173,7 @@ class Watch:
         for name, value in current.items():
             changed = name in old['checks'] and old['checks'][name] != value
             initial_problem = not old['checks'] and (value['status'] == 'indisponible' or
-                value.get('espace_faible') or (name.startswith('services') and value.get('lignes')))
+                value.get('espace_faible') or value.get('surcharge') or value.get('memoire_faible') or (name.startswith('services') and value.get('lignes')))
             if changed or initial_problem:
                 fingerprint = hashlib.sha256(json.dumps([name, value], sort_keys=True).encode()).hexdigest()
                 if fingerprint not in seen:
