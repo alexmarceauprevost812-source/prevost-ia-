@@ -291,5 +291,83 @@ class BenchTests(unittest.TestCase):
         self.assertEqual(code, 0)
 
 
+class CodeProducedTests(unittest.TestCase):
+    """Le code produit par le modèle est affiché pour chaque essai en échec (le dossier temporaire est supprimé ensuite)."""
+    run_bench = BenchTests.run_bench
+
+    def test_failed_missions_show_the_code_the_model_wrote(self):
+        code, text, _ = self.run_bench('oui', ('faux',), client=FaultyClient(['faux']))
+        self.assertEqual(code, 0)
+        self.assertIn('Code produit — faux (essais en échec)', text)
+        self.assertIn('  bonjour — bonjour.py :\n        print("Salut")', text)
+        self.assertIn('self.assertEqual(additionner(2, 3), 6)', text)
+        self.assertIn('  taches — taches.py :\n        class GestionnaireTaches:\n            pass', text)
+        # Après les raisons, et après le tableau.
+        self.assertLess(text.index('Total'), text.index('Raisons des échecs'))
+        self.assertLess(text.index('Raisons des échecs'), text.index('Code produit — faux'))
+
+    def test_no_code_section_when_everything_passes(self):
+        code, text, _ = self.run_bench('oui', ('bon',))
+        self.assertEqual(code, 0)
+        self.assertNotIn('Code produit', text)
+
+    def test_code_is_shown_only_for_the_trials_that_failed(self):
+        code, text, _ = self.run_bench('oui', ('capricieux',), client=FlakyClient(['capricieux']), extra=('--essais', '2'))
+        self.assertEqual(code, 0)
+        self.assertIn('  bonjour (essai 1/2) — bonjour.py :\n        print("Salut")', text)
+        self.assertNotIn('(essai 2/2) — ', text)
+        self.assertEqual(text.count('print("Salut")'), 1)
+
+    def test_a_failed_trial_that_wrote_nothing_says_so(self):
+        code, text, _ = self.run_bench('oui', ('mauvais',), extra=('--essais', '2'))
+        self.assertIn('  bonjour (essai 1/2) — aucun fichier .py produit', text)
+        self.assertIn('  bonjour (essai 2/2) — aucun fichier .py produit', text)
+
+    def test_code_from_the_model_cannot_inject_terminal_sequences(self):
+        class Hostile(FaultyClient):
+            def plan(self, model, text):
+                plan = super().plan(model, text)
+                if self.mission(text) == 'bonjour':
+                    plan['files'][0]['content'] = '# \x1b[31mROUGE\x1b[0m\nprint("Salut")\n'
+                return plan
+
+        code, text, _ = self.run_bench('oui', ('faux',), client=Hostile(['faux']))
+        self.assertIn('ROUGE', text)
+        self.assertNotIn('\x1b', text)
+
+    def test_produced_files_reads_only_ordinary_python_files_and_truncates(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            (root/'court.py').write_text('x = 1\n', encoding='utf-8')
+            (root/'long.py').write_text('a = 1\n' * 2000, encoding='utf-8')
+            (root/'vide.py').write_text('', encoding='utf-8')
+            (root/'notes.txt').write_text('pas du python', encoding='utf-8')
+            (root/'lien.py').symlink_to(root/'court.py')
+            import os
+            os.mkfifo(root/'tube.py')   # ne doit pas être ouvert : cela bloquerait
+            (root/'dossier.py').mkdir()
+            files = bench.produced_files(root)
+        self.assertEqual(sorted(files), ['court.py', 'long.py', 'vide.py'])
+        self.assertEqual(files['court.py'], 'x = 1\n')
+        self.assertTrue(files['long.py'].endswith('\n… (tronqué)'))
+        self.assertLessEqual(len(files['long.py']), bench.FILE_CHARS + len('\n… (tronqué)'))
+        self.assertEqual(files['vide.py'], '')
+
+    def test_produced_files_is_bounded_in_number(self):
+        with tempfile.TemporaryDirectory() as folder:
+            for i in range(30):
+                (Path(folder)/f'f{i:02d}.py').write_text('pass\n', encoding='utf-8')
+            self.assertEqual(len(bench.produced_files(folder)), 8)
+
+    def test_run_model_without_produced_stays_unchanged(self):
+        # Les appels existants (sans `produced`) ne lisent aucun code et n'affichent rien.
+        with tempfile.TemporaryDirectory() as base, contextlib.redirect_stdout(io.StringIO()) as out:
+            results = bench.run_model(FaultyClient(['faux']), 'faux', base, 30)
+        self.assertEqual(out.getvalue(), '')
+        self.assertTrue(any(reasons[0] for reasons in results.values()))
+        self.assertEqual(bench.failures(['faux'], {'faux': results}), bench.failures(['faux'], {'faux': results}, 1, None))
+        self.assertNotIn('Code produit', bench.failures(['faux'], {'faux': results}))
+
+
 if __name__ == '__main__':
     unittest.main()
