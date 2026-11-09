@@ -1,0 +1,7 @@
+__pycache__/
+*.pyc
+exports/
+rapports/**/*.json
+rapports/**/*.sha256
+rapports/**/*.jsonl
+rapports/**/recovery-*.txt

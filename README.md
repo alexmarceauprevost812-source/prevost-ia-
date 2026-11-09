@@ -127,3 +127,27 @@ Saisir `scan complet` ou même `scam complet` ouvre un dialogue déterministe, s
 Le profil demandé est exactement `nmap -v -A CIBLE`. `-A` active versions, scripts par défaut, détection du système et traceroute selon les droits disponibles ; ce profil conserve la sélection habituelle de 1 000 ports TCP, sans couvrir tous les ports ni UDP. Voir les documentations officielles des [options Nmap](https://nmap.org/book/man-briefoptions.html) et de la [sélection des ports](https://nmap.org/book/man-port-specification.html). Seule une cible est acceptée ; URL, CIDR, plage et options supplémentaires sont refusés par `/scan`. Les commandes manuelles `/commande` conservent leur fonctionnement et leur confirmation habituels.
 
 Le délai est celui de `--timeout` (30 secondes par défaut, maximum 300) ; pour laisser davantage de temps, relancer PRÉVOST avec `python3 -m prevost --project . --timeout 300`. Les sorties sont affichées à la fin et conservées localement dans l’état privé du projet, jamais envoyées automatiquement au modèle. Un échec de résolution est signalé comme une absence de scan même si Nmap retourne 0. Aucun recours automatique à `sudo` et aucun changement de cible si la commande échoue.
+
+
+
+## Samsung Recovery — PRÉVOST V19
+
+Le module terminal [Samsung Recovery](samsung-recovery/README-V19.md) regroupe les
+diagnostics USB/MTP/ADB et la préparation des démarches officielles Google, Samsung
+et Bell. Les fonctions de PRÉVOST IA ci-dessus sont conservées.
+
+```bash
+cd samsung-recovery
+python3 prevost-samsung
+python3 prevost-samsung google-frp --section google
+python3 -m unittest discover -s tests -v
+```
+
+Le choix 10 « Récupération Google FRP » génère uniquement un dossier local et deux
+brouillons non envoyés. Aucun contournement FRP, effacement, flash ou collecte de
+mots de passe, cookies ou jetons n'est ajouté. Les commandes de diagnostic existantes
+restent disponibles ; les limites de chaque sonde sont décrites dans leurs README.
+
+Les [conclusions V19](samsung-recovery/rapports/v19/RAPPORT-V19.md) et les sources
+versionnées sont incluses. Les rapports bruts du téléphone et les justificatifs
+personnels restent locaux ; ils ne sont pas publiés dans ce dépôt.

@@ -1,0 +1,10 @@
+{
+  "mission": "PRÉVOST V19",
+  "device_declared": "Samsung Galaxy S21 FE 5G — SM-G990W2",
+  "screen_text": "Vérifier votre compte Google",
+  "confirmed_by_user": true,
+  "source": "Confirmation visuelle déclarée explicitement par l’utilisateur dans la mission V19",
+  "recorded_on": "2026-11-09",
+  "observation_time": null,
+  "limits": "Aucune capture inspectée par l’outil ; aucun indicateur système FRP lu. L’heure de l’observation n’a pas été fournie."
+}
