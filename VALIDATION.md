@@ -161,3 +161,18 @@ Essais faits par l'utilisateur, sortie collée dans la conversation. Résultats 
 ## Plan lisible et /annuler — 9 novembre 2026
 
 **172 tests** pour PRÉVOST (16 ajoutés dans `tests/test_plan_and_undo.py`), 114 pour `samsung-recovery`, 26 pour `integration-rea`, tous réussis sous Linux. Les tests couvrent : résumé du plan (nouveau/modifié, commandes avec arguments, aperçu tronqué des sorties attendues, avertissement sans contrôle, caractères de contrôle), progression sans JSON brut et option `--plan-brut`, un plan par correction, sauvegardes attribuées à leur fichier, restauration avec différence et confirmation, restauration annulable, refus sans changement, index falsifié (chemins hors du dossier, entrées invalides) ignoré, sauvegardes anciennes comptées mais non listées, commandes `/annuler` de bout en bout. La génération du modèle est simulée ; écritures et restaurations sont réelles. Rien de cela n'a encore été essayé par l'utilisateur sur son Ubuntu.
+
+## Essais réels du 9 novembre 2026 et corrections
+
+**181 tests** pour PRÉVOST, 114 pour `samsung-recovery`, 32 pour `integration-rea`, tous réussis sous Linux.
+
+Essayé par l'utilisateur sur son Ubuntu avec `qwen3:8b` : plan lisible avec diff en couleurs, mission de modification de `taches.py` avec `double_verification_reussie`, boucle de correction, `/annuler` (liste, restauration, aller-retour sans perte), `/memoire`, lanceur `prevost-rea` en terminal, boutons `rea-prevost` et `prevost-rea` dans REA, titre et icône REA, icône REA sur le bureau (ce dernier point rapporté par l'utilisateur, non vu par moi).
+
+Défauts relevés pendant ces essais, puis corrigés avec des tests (6 des 7 nouveaux tests échouent sans les corrections) :
+- le modèle annonçait une sortie sans le `\n` final : un seul `\n` final manquant dans l'annonce est maintenant toléré ; tout autre écart reste une erreur (deux sauts de ligne réels, saut annoncé mais absent, texte différent) ;
+- le message « Rien n'a été écrit » était faux quand des tentatives précédentes avaient déjà écrit des fichiers : il nomme maintenant ces fichiers et rappelle `/annuler` ;
+- réécrire un fichier identique demandait un « oui » et créait une sauvegarde inutile : plus de confirmation ni de sauvegarde, le plan affiche « inchangé », et restaurer une sauvegarde identique au fichier actuel ne fait rien ;
+- `/coder` sans demande envoyait une mission vide au modèle : il est refusé tout de suite avec un message d'usage.
+
+Limites confirmées : un contrôle réussi prouve seulement que la sortie correspond à l'annonce du modèle ; `qwen3:8b` peut écrire du code valable seulement en Python 3.12+ (guillemets doubles dans un f-string) sans que PRÉVOST le détecte ; ses explications en conversation peuvent contenir des détails faux (un exemple relevé sur `memory.py`).
+

@@ -37,7 +37,7 @@ Pour modifier un fichier avec Ollama, le lire d’abord avec `/lire`, puis utili
 
 ### Double vérification du code Python
 
-Dans `/coder` et `/agent`, le bilan du code exige deux contrôles complémentaires pour chaque fichier écrit : compilation de la syntaxe sans exécuter le programme, puis exécution confirmée avec code retour zéro et comparaison exacte à une sortie attendue. Une relecture ne remplace aucun de ces contrôles. L’empreinte du fichier doit encore correspondre au bilan ; une modification pendant l’exécution invalide le contrôle.
+Dans `/coder` et `/agent`, le bilan du code exige deux contrôles complémentaires pour chaque fichier écrit : compilation de la syntaxe sans exécuter le programme, puis exécution confirmée avec code retour zéro et comparaison exacte à une sortie attendue (seul un saut de ligne final oublié dans l’annonce est toléré). Une relecture ne remplace aucun de ces contrôles. L’empreinte du fichier doit encore correspondre au bilan ; une modification pendant l’exécution invalide le contrôle.
 
 `/coder` demande au modèle une liste `checks` de contrôles `{ "path": "programme.py", "expected_stdout": "sortie attendue\n" }`, exécutés après les écritures et commandes. Un ancien plan sans contrôles peut toujours écrire les fichiers confirmés, mais son bilan indique `verification_incomplete`. `/agent` refuse une fin de mission réussie après des écritures sans ces preuves ; toute nouvelle écriture impose de refaire les contrôles de tous les fichiers écrits pendant la mission. Les rapports présentent le détail et les identifiants de preuve.
 

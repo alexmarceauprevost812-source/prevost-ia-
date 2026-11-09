@@ -240,6 +240,8 @@ class Project:
             raise ValueError('Contenu texte limité à 200 Ko.')
         path = self.path(name)
         previous = self.read(name) if path.exists() else None
+        if previous is not None and previous == content:
+            return True  # rien à écrire : ni « oui », ni sauvegarde inutile
         delta = '\n'.join(difflib.unified_diff((previous or '').splitlines(), content.splitlines(),
                           fromfile=name, tofile=name, lineterm=''))
         if not confirm(f'Proposition de fichier : {name}\n{delta}'):
@@ -269,6 +271,11 @@ class Project:
                 os.unlink(temporary)
         self.save({'event': 'file', 'path': name})
         return True
+
+    def same(self, name, content):
+        """Le fichier existe déjà avec exactement ce contenu."""
+        path = self.path(name)
+        return path.exists() and self.read(name) == content
 
     def backups(self, name):
         """Sauvegardes d'un fichier, la plus récente d'abord ; seules les entrées saines de l'index comptent."""
@@ -312,7 +319,10 @@ class Project:
         data = (self.state/'backups'/entry['file']).read_bytes()
         if len(data) > LIMIT:
             raise ValueError('Sauvegarde trop volumineuse (200 Ko maximum).')
-        return self.write(name, data.decode('utf-8'), confirm)
+        text = data.decode('utf-8')
+        if self.same(name, text):
+            return None  # la sauvegarde est identique au fichier actuel
+        return self.write(name, text, confirm)
 
     def save(self, entry):
         with self.record.open('a', encoding='utf-8') as stream:
@@ -479,7 +489,7 @@ def check_plan(project, plan, request):
     return files, commands, checks
 
 
-def obtain_plan(client, model, project, ui, messages, request, raw=False):
+def obtain_plan(client, model, project, ui, messages, request, raw=False, written=()):
     """Demander un plan ; une seule reprise si le plan est inutilisable. Retourne (réponse, plan ou None)."""
     def ask(conversation):
         chunks = client.chat(model, conversation, structured=True)
@@ -497,7 +507,9 @@ def obtain_plan(client, model, project, ui, messages, request, raw=False):
     try:
         return answer, check_plan(project, parse_plan(answer), request)
     except PlanError as error:
-        ui.show('Mission interrompue : plan encore inutilisable après une reprise (' + str(error) + '). Rien n’a été écrit.')
+        outcome = ('Cette tentative n’a rien écrit ; fichiers déjà écrits par les tentatives précédentes : ' + ', '.join(written)
+                   + ' (/annuler FICHIER pour revenir en arrière).') if written else 'Rien n’a été écrit.'
+        ui.show('Mission interrompue : plan encore inutilisable après une reprise (' + str(error) + '). ' + outcome)
         return answer, None
 
 
@@ -507,7 +519,8 @@ def describe_plan(project, files, commands, checks):
     if files:
         lines.append(f'Fichiers ({len(files)}) :')
         for item in files:
-            status = 'modifié' if project.path(item['path']).exists() else 'nouveau'
+            status = ('inchangé' if project.same(item['path'], item['content']) else 'modifié'
+                      if project.path(item['path']).exists() else 'nouveau')
             lines.append(f"  - {item['path']} : {status}, {len(item['content'].splitlines())} ligne(s)")
     else:
         lines.append('Fichiers : aucun')
@@ -544,6 +557,8 @@ def run_plan(project, ui, files, commands, checks, timeout, results):
     """
     from .tools import Registry
     for item in files:
+        if project.same(item['path'], item['content']):
+            ui.show(f"{item['path']} : identique à la version actuelle, rien à écrire.")
         if not project.write(item['path'], item['content'], ui.confirm):
             ui.show('Mission interrompue : fichier refusé, aucune commande lancée.')
             return {'outcome': 'refused'}
@@ -599,7 +614,7 @@ def code_mission(client, model, project, request, ui, timeout, corrections=2, me
         for number in range(corrections + 1):
             attempts = number + 1
             outcome, report = 'interrompu', {}
-            answer, plan = obtain_plan(client, model, project, ui, messages, request, raw_plan)
+            answer, plan = obtain_plan(client, model, project, ui, messages, request, raw_plan, written=written)
             if plan is None:
                 outcome = 'plan_invalide'
                 break
@@ -799,6 +814,8 @@ def main(argv=None):
                 elif verb == '/scan' or requested_scan is not None:
                     scan_mission(project, rest if verb == '/scan' else requested_scan, ui, args.timeout)
                 elif verb == '/coder':
+                    if not rest.strip():
+                        raise ValueError('Usage : /coder DEMANDE (par exemple : /coder fais bonjour.py qui affiche Bonjour, puis lance-le et teste-le)')
                     if not model:
                         raise ValueError('Choisir un modèle avec /modeles.')
                     code_mission(client, model, project, rest, ui, args.timeout, corrections=args.corrections, raw_plan=args.plan_brut)
@@ -819,7 +836,10 @@ def main(argv=None):
                         position = int(number)
                         if not 1 <= position <= min(len(found), 20):
                             raise ValueError('Numéro de sauvegarde invalide.')
-                        if project.restore(name, found[position - 1], ui.confirm):
+                        restored = project.restore(name, found[position - 1], ui.confirm)
+                        if restored is None:
+                            ui.show('Cette sauvegarde est identique au fichier actuel ; rien à restaurer.')
+                        elif restored:
                             ui.show('Fichier restauré ; la version remplacée est sauvegardée à son tour (/annuler la retrouve).')
                         else:
                             ui.show('Restauration refusée ; rien n’a changé.')

@@ -21,6 +21,11 @@ def timestamp():
     return datetime.now(timezone.utc).isoformat()
 
 
+def same_output(actual, expected):
+    """Sortie identique au caractère près ; seul un « \\n » final oublié dans l’annonce est toléré."""
+    return actual == expected or (not expected.endswith('\n') and actual == expected + '\n')
+
+
 def process(argv, cwd=None, timeout=10, cancel=None, limit=LIMIT, input_data=None):
     """Sortie bornée en mémoire et à la source ; arrêt du groupe sur tous les chemins."""
     start = time.monotonic()
@@ -177,7 +182,7 @@ class Registry:
         self.add('python.run', 'Exécuter un fichier Python du projet, comparer sa sortie attendue',
             {'path': {**path, 'suffix': '.py'}, 'expected_stdout': {'type': 'string', 'max_bytes': LIMIT}},
             ['execution_code', 'peut_modifier_systeme', 'peut_acceder_reseau'], 15,
-            'Deux contrôles : syntaxe Python, puis retour 0 ET stdout attendu exact ; source inchangée après exécution', sensitive=True)
+            'Deux contrôles : syntaxe Python, puis retour 0 ET stdout attendu exact (un « \\n » final oublié est toléré) ; source inchangée après exécution', sensitive=True)
         self.add('local.disk', 'Mesurer le disque racine visible', {}, ['lecture_statvfs'], 3,
             'Valeurs numériques cohérentes : 0 <= libre <= total et total > 0')
 
@@ -341,8 +346,9 @@ class Registry:
                 result.update(status=evidence['status'], evidence=evidence)
                 verified = evidence['status'] == 'ok'
                 if name == 'python.run':
-                    verified = verified and evidence['stdout'] == params['expected_stdout']
-                    result['stdout_matches'] = evidence['stdout'] == params['expected_stdout']
+                    matches = same_output(evidence['stdout'], params['expected_stdout'])
+                    verified = verified and matches
+                    result['stdout_matches'] = matches
                     result['source_sha256'] = hashlib.sha256(source.encode()).hexdigest()
                     unchanged = self.project.read(params['path']) == source
                     verified = verified and unchanged

@@ -267,6 +267,65 @@ class CoderLoopTests(unittest.TestCase):
         self.assertTrue((self.project.state/'memory.json').exists())
         self.assertEqual(sorted(path.name for path in self.root.iterdir()), ['p.py'])
 
+    # --- Suites du test réel du 9 nov. : « \\n » final, message exact, fichier identique ------------
+
+    def test_missing_final_newline_in_announced_output_is_accepted(self):
+        result = self.run_mission(Script(plan(expected='ok')))
+        self.assertEqual(result['status'], 'double_verification_reussie')
+        self.assertEqual(result['attempts'], 1)
+
+    def test_only_one_missing_final_newline_is_tolerated(self):
+        from prevost.tools import same_output
+        self.assertTrue(same_output('ok\n', 'ok\n'))
+        self.assertTrue(same_output('ok\n', 'ok'))
+        self.assertFalse(same_output('ok\n\n', 'ok'))   # deux sauts de ligne réels : pas la même sortie
+        self.assertFalse(same_output('ok', 'ok\n'))     # l’annonce ajoute un saut qui n’existe pas
+        self.assertFalse(same_output('ok\n', 'okk'))
+        self.assertFalse(same_output('a\nb\n', 'a\nc'))
+        self.assertFalse(same_output('', 'x'))
+
+    def test_wrong_output_still_fails_even_without_final_newline(self):
+        result = self.run_mission(Script(plan(code='print("ok\\n")\n', expected='ok')), corrections=0)
+        self.assertNotEqual(result['status'], 'double_verification_reussie')
+        self.assertEqual(self.outcomes(), ['echec'])
+
+    def test_interruption_after_an_earlier_write_does_not_claim_nothing_was_written(self):
+        model = Script(plan(expected='faux\n'), 'pas du json', 'toujours pas du json')
+        self.assertIsNone(self.run_mission(model, corrections=2))
+        self.assertTrue((self.root/'p.py').exists())
+        self.assertIn('fichiers déjà écrits par les tentatives précédentes : p.py', self.output)
+        self.assertIn('/annuler FICHIER', self.output)
+        self.assertNotIn('Rien n’a été écrit', self.output)
+        self.assertEqual(self.outcomes(), ['plan_invalide'])
+
+    def test_identical_file_needs_no_confirmation_and_makes_no_backup(self):
+        self.assertTrue(self.project.write('p.py', 'a = 1\n', self.confirm))
+        self.assertEqual(len(self.proposals), 1)
+        self.assertTrue(self.project.write('p.py', 'a = 1\n', self.confirm))
+        self.assertEqual(len(self.proposals), 1)           # aucune nouvelle confirmation
+        self.assertEqual(self.project.backups('p.py'), [])  # aucune sauvegarde inutile
+
+    def test_identical_file_is_shown_as_unchanged_and_not_asked_in_a_mission(self):
+        from prevost.app import describe_plan
+        (self.root/'p.py').write_text('print("ok")\n', encoding='utf-8')
+        files = [{'path': 'p.py', 'content': 'print("ok")\n'}]
+        self.assertIn('p.py : inchangé', describe_plan(self.project, files, [], []))
+        result = self.run_mission(Script(plan()))
+        self.assertEqual(result['status'], 'double_verification_reussie')
+        self.assertIn('identique à la version actuelle, rien à écrire', self.output)
+        self.assertEqual(self.written_proposals(), [])
+        self.assertEqual(self.project.backups('p.py'), [])
+
+    def test_restoring_a_backup_identical_to_the_file_does_nothing(self):
+        self.project.write('p.py', 'v1\n', self.confirm)
+        self.project.write('p.py', 'v2\n', self.confirm)
+        self.project.write('p.py', 'v1\n', self.confirm)
+        found = self.project.backups('p.py')               # [v2, v1] : le fichier actuel vaut v1
+        before = len(self.proposals)
+        self.assertIsNone(self.project.restore('p.py', found[1], self.confirm))
+        self.assertEqual(len(self.proposals), before)
+        self.assertEqual((self.root/'p.py').read_text(encoding='utf-8'), 'v1\n')
+
 
 class CommandLineTests(unittest.TestCase):
     def setUp(self):
@@ -299,6 +358,13 @@ class CommandLineTests(unittest.TestCase):
         self.assertIn('Usage : /memoire', output)
         self.assertFalse(ProjectMemory(self.project.state).path.exists())
 
+    def test_coder_without_a_request_is_refused_before_calling_the_model(self):
+        with patch('prevost.app.code_mission') as mission:
+            status, output = self.session(['/coder', '/coder   ', '/quitter'])
+        self.assertEqual(status, 0)
+        mission.assert_not_called()
+        self.assertEqual(output.count('Usage : /coder DEMANDE'), 2)
+
     def test_corrections_option_is_passed_and_validated(self):
         with patch('prevost.app.code_mission') as mission:
             self.session(['/coder fais p.py', '/quitter'], extra=['--corrections', '1'])
@@ -309,7 +375,6 @@ class CommandLineTests(unittest.TestCase):
         status, output = self.session([], extra=['--corrections', '9'])
         self.assertEqual(status, 1)
         self.assertIn('--corrections', output)
-
 
 if __name__ == '__main__':
     unittest.main()
