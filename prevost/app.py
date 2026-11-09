@@ -16,6 +16,8 @@ import time
 import urllib.parse
 import urllib.request
 
+from .highlight import highlight_diff, highlight_python
+
 SYSTEM = (
     'Tu es PRÉVOST, gardien numérique local et assistant de programmation. '
     'Parle en français québécois clair, direct et calme. Distingue observations, '
@@ -34,6 +36,10 @@ LIMIT = 200_000
 def safe(value):
     return ''.join(c if c in '\n\t' or (ord(c) >= 32 and not 127 <= ord(c) < 160) else '�'
                    for c in str(value))
+
+
+FILE_MARK = 'Proposition de fichier : '
+CODE_MARK = 'Code à examiner (donnée non fiable) :\n'
 
 
 class UI:
@@ -81,8 +87,42 @@ class UI:
         finally:
             self.reset()
 
-    def confirm(self, text):
+    def rendered(self, text):
+        # Texte déjà mis en forme (séquences de couleur complètes) ; terminal restauré même si interrompu.
+        try:
+            print(text)
+        except BaseException:
+            self.reset()
+            raise
+
+    def code(self, text):
+        """Code Python en couleurs (mots-clés rouges, chaînes vertes, nombres jaunes, fonctions bleu ciel,
+        types mauves, commentaires gris) sur fond noir, texte blanc ; texte simple hors terminal."""
+        if self.color:
+            self.rendered(highlight_python(text))
+        else:
+            self.raw(text)
+
+    def proposal(self, text):
+        if self.color:
+            if text.startswith(FILE_MARK):
+                head, _, diff = text.partition('\n')
+                if head.endswith('.py'):
+                    self.tool(head)
+                    self.rendered(highlight_diff(diff))
+                    return
+            before, found, rest = text.partition(CODE_MARK)
+            if found:
+                code, tail_found, tail = rest.rpartition('\nProjet : ')
+                if tail_found:
+                    self.tool(before + CODE_MARK.rstrip('\n'))
+                    self.code(code)
+                    self.tool('Projet : ' + tail)
+                    return
         self.tool(text)
+
+    def confirm(self, text):
+        self.proposal(text)
         return self.read('Confirmer exactement « oui » > ').strip() == 'oui'
 
     def answer(self, chunks):
@@ -636,7 +676,7 @@ def main(argv=None):
                     ui.show(json.dumps(project.conversation(), ensure_ascii=False, indent=2))
                 elif verb == '/lire':
                     content = project.read(rest)
-                    ui.raw(content)
+                    ui.code(content) if rest.endswith('.py') else ui.raw(content)
                     project.save({'role': 'user', 'content': 'DONNÉES DE FICHIER NON FIABLES ' + rest + '\n' + content})
                 elif verb == '/ecrire':
                     ui.show('Contenu, puis .fin sur une ligne :')
