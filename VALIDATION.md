@@ -137,8 +137,49 @@ rapport. Les tests `/coder` utilisent une génération de plan simulée, puis de
 et exécutions réelles. Aucun nouveau résultat Ollama réel n’est revendiqué. Ces essais
 vérifient le mécanisme de validation, pas la qualité générale des programmes d’un modèle.
 
+## Plans refusés avant écriture, boucle de correction et mémoire — 9 novembre 2026
+
+Branche `totalité` (fusion de `main`, v2, Samsung V16–V21 et rea-prevost) : **142 tests** pour PRÉVOST (dont 32 nouveaux), **114** pour `samsung-recovery` et **16** pour `integration-rea`, tous réussis sous Linux avec `python3 -B -m unittest discover -s tests` (et `python3 -B -m unittest test_installer` dans `integration-rea`).
+
+Les nouveaux tests couvrent : JSON tronqué (une reprise, puis arrêt sans écriture), fichier Python qui ne compile pas, JSON invalide, demande « lance/teste » sans commande ni contrôle, contrôle ou commande visant un fichier inconnu, chemin dangereux non retenté ; correction après contrôle ou commande en échec avec preuve transmise, plafond de corrections (0, 1, 2), arrêt sur fichier refusé, commande ou contrôle non confirmé, délai dépassé ; mémoire (étiquette « non fiable », plafond de 2 Ko, enregistrement de toutes les issues, aucun code, sortie ni secret conservé, fichier privé en mode 600 hors du projet, fichier corrompu, `/memoire` et `--corrections` en ligne de commande).
+
+Limite : la génération du modèle est **simulée** dans ces tests ; les écritures, compilations, sous-processus et contrôles sont réels. Aucun essai Ollama réel de la boucle de correction n’est revendiqué : il reste à mesurer avec `prevost-codex:v4`, `qwen2.5-coder:7b` et `qwen3:8b` sur des missions réelles.
+
+## Essais réels sur Ubuntu (Ollama local) — 9 novembre 2026
+
+Essais faits par l'utilisateur, sortie collée dans la conversation. Résultats **réels mais en très petit nombre** :
+
+- `qwen3:8b` via `/coder` : `bonjour.py` écrit, lancé et vérifié (le premier contrôle a expiré parce que le temps de confirmation humaine comptait dans le délai : bogue corrigé, test de régression ajouté).
+- `qwen3:8b` via `/coder`, mission `taches.py` : premier plan avec deux contrôles contradictoires sur le même fichier (refusé désormais avant écriture) ; second essai : le contrôle a échoué parce que la sortie attendue par le modèle (« Erreur: Tâche vide. ») différait de la sortie réelle (« Erreur: Tâche vide ») ; **une correction** (un point ajouté au message d'erreur) a donné `double_verification_reussie` en 2 essais, chaque étape confirmée.
+- Limite : ce bilan prouve que le programme produit la sortie que le modèle avait annoncée, pas que le programme fait ce que l'utilisateur voulait. Ici, `terminer` supprime la tâche au lieu de la marquer terminée, et la correction a modifié le code pour coller à l'attente du modèle plutôt que l'inverse.
+- Codex via `rea-prevost` : `prevost:latest` écrit un faux appel d'outil en texte ; `qwen3:8b` répond avec du code sans créer ni lancer de fichier. Le raccordement démarre mais n'est pas validé pour programmer avec ces modèles ; cause non établie. D'où le bouton `prevost-rea`.
+
+## Code coloré dans l'interface — 9 novembre 2026
+
+12 tests ajoutés (`tests/test_highlight.py`) : couleurs de chaque rôle, texte préservé caractère pour caractère, code cassé ou tronqué sans erreur, séquences de contrôle hostiles neutralisées, différences de fichiers `.py`, code à examiner avant un contrôle (y compris un code qui contient lui-même « Projet : »), confirmations inchangées hors terminal, terminal restauré en cas d'interruption. Les séquences ANSI sont vérifiées par les tests ; **l'aspect réel dans ton terminal n'a pas été vu** et reste à confirmer. Le thème de Codex (`prevost-noir.tmTheme`, bouton `rea-prevost`) est un autre mécanisme, non vérifié ici faute de Codex dans cet environnement.
+
+## Plan lisible et /annuler — 9 novembre 2026
+
+**172 tests** pour PRÉVOST (16 ajoutés dans `tests/test_plan_and_undo.py`), 114 pour `samsung-recovery`, 26 pour `integration-rea`, tous réussis sous Linux. Les tests couvrent : résumé du plan (nouveau/modifié, commandes avec arguments, aperçu tronqué des sorties attendues, avertissement sans contrôle, caractères de contrôle), progression sans JSON brut et option `--plan-brut`, un plan par correction, sauvegardes attribuées à leur fichier, restauration avec différence et confirmation, restauration annulable, refus sans changement, index falsifié (chemins hors du dossier, entrées invalides) ignoré, sauvegardes anciennes comptées mais non listées, commandes `/annuler` de bout en bout. La génération du modèle est simulée ; écritures et restaurations sont réelles. Rien de cela n'a encore été essayé par l'utilisateur sur son Ubuntu.
+
+## Essais réels du 9 novembre 2026 et corrections
+
+**181 tests** pour PRÉVOST, 114 pour `samsung-recovery`, 32 pour `integration-rea`, tous réussis sous Linux.
+
+Essayé par l'utilisateur sur son Ubuntu avec `qwen3:8b` : plan lisible avec diff en couleurs, mission de modification de `taches.py` avec `double_verification_reussie`, boucle de correction, `/annuler` (liste, restauration, aller-retour sans perte), `/memoire`, lanceur `prevost-rea` en terminal, boutons `rea-prevost` et `prevost-rea` dans REA, titre et icône REA, icône REA sur le bureau (ce dernier point rapporté par l'utilisateur, non vu par moi).
+
+Défauts relevés pendant ces essais, puis corrigés avec des tests (6 des 7 nouveaux tests échouent sans les corrections) :
+- le modèle annonçait une sortie sans le `\n` final : un seul `\n` final manquant dans l'annonce est maintenant toléré ; tout autre écart reste une erreur (deux sauts de ligne réels, saut annoncé mais absent, texte différent) ;
+- le message « Rien n'a été écrit » était faux quand des tentatives précédentes avaient déjà écrit des fichiers : il nomme maintenant ces fichiers et rappelle `/annuler` ;
+- réécrire un fichier identique demandait un « oui » et créait une sauvegarde inutile : plus de confirmation ni de sauvegarde, le plan affiche « inchangé », et restaurer une sauvegarde identique au fichier actuel ne fait rien ;
+- `/coder` sans demande envoyait une mission vide au modèle : il est refusé tout de suite avec un message d'usage.
+
+Limites confirmées : un contrôle réussi prouve seulement que la sortie correspond à l'annonce du modèle ; `qwen3:8b` peut écrire du code valable seulement en Python 3.12+ (guillemets doubles dans un f-string) sans que PRÉVOST le détecte ; ses explications en conversation peuvent contenir des détails faux (un exemple relevé sur `memory.py`).
 
 ## Fiabilité de `/coder`, mémoire et banc d’essai — 9 novembre 2026
+
+> **Section venue de `main` avant la fusion.** Elle décrit la version de `main` de la boucle de correction, de la mémoire et de `/annuler`, **remplacée dans `totalité` par la version décrite plus haut** (la mémoire de `totalité` refuse les secrets au lieu de les masquer, et `/annuler` y liste des sauvegardes par fichier). Les résultats concernant le banc d’essai (`prevost/bench.py`) restent valables.
+
 
 Commandes lancées : `python3 -B -m unittest discover -s tests` (127 tests réussis) et, dans `samsung-recovery`, `python3 -B -m unittest discover -s tests` (114 tests réussis).
 
@@ -159,3 +200,17 @@ Commandes lancées : `python3 -B -m unittest discover -s tests` (127 tests réus
 ### Non fait
 
 - Outil web en lecture seule et description d’image (mission 7, prévue plus tard).
+
+## Fusion de `main` dans `totalité` — 9 novembre 2026
+
+**Gardé de `totalité`** (déjà éprouvé en vrai avec Ollama) : boucle de correction `--corrections`, mémoire `ProjectMemory` (refuse les secrets), `/annuler FICHIER`, plan lisible, tolérance d’un seul `\n` final dans la sortie annoncée, fichier identique = ni confirmation ni sauvegarde.
+
+**Repris de `main`** : banc d’essai `prevost bench` (`prevost/bench.py`), outils du registre `project.list`, `project.search`, `python.tests`, modèle par défaut mémorisé (`/modeles` le change), changements du Gardien, `premiers.py`.
+
+**Abandonné de `main`** (même fonction, deux versions : celle de `totalité` reste) : sa classe `Memory` (masquage au lieu de refus), son `undo`, sa boucle de reprise. Douze de ses tests, qui visaient ces fonctions, ont été retirés de `tests/test_app.py` ; les mêmes comportements sont couverts par `tests/test_coder_loop.py`, `tests/test_memory.py` et `tests/test_plan_and_undo.py`. **Un comportement de `main` n’est pas repris** : arrêt anticipé quand le modèle repropose exactement le même plan (« absence de progrès ») ; `totalité` utilise alors ses deux corrections.
+
+**Ajusté pour que les deux se marient** : le banc d’essai tourne maintenant en silence (aucun point de progression affiché) et un test le vérifie.
+
+Commandes lancées après la fusion, Python 3.13 sous Linux : `python3 -B -m unittest discover -s tests` (196 tests réussis), `python3 -B -m unittest test_premiers` (4), dans `samsung-recovery` (114) et dans `integration-rea` (32).
+
+**Non vérifié** : le banc d’essai n’a jamais tourné avec un vrai modèle Ollama (seulement un « bon » et un « mauvais » faux modèle) ; l’interface complète fusionnée n’a pas été relancée à la main sur le PC d’Alex.

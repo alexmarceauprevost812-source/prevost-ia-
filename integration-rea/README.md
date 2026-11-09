@@ -11,6 +11,24 @@ planifier les changements complexes, modifier de façon ciblée, exécuter les t
 et distinguer les résultats réels des suppositions. Ce raccordement n'entraîne pas les
 poids du modèle et ne garantit pas un niveau de performance « professionnel ».
 
+## Deuxième bouton : prevost-rea (PRÉVOST Python)
+
+Avec les modèles locaux essayés, Codex n'a pas fait le travail : `prevost:latest` écrit un faux appel
+d'outil en texte et `qwen3:8b` répond sans créer de fichier. Le bouton **prevost-rea** lance donc
+PRÉVOST Python (`python3 -m prevost`) sur le projet choisi : plans vérifiés avant écriture,
+corrections après un échec, mémoire du projet, chaque écriture et chaque commande confirmées par
+un « oui » exact. Sans `--model`, PRÉVOST liste les modèles installés et demande lequel utiliser ;
+`PREVOST_MODEL=qwen3:8b` en fixe un par défaut. Si le démarrage échoue, le terminal reste ouvert
+pour lire l'erreur.
+
+L'installateur ajoute ce bouton **à côté** du bouton rea-prevost (Codex), sans le retirer, et met à
+niveau un `rea-gui` déjà installé. Il écrit `~/.local/bin/prevost-rea`, lié au dossier de ce dépôt :
+si le dépôt est déplacé ou si une autre branche est activée, relancer `installer.py --apply`.
+Commande : `prevost-rea --project /chemin/du/projet`.
+Le titre de la fenêtre REA devient « PRÉVOST — REA » et l'en-tête indique « REA avec PRÉVOST local (prevost-rea)  |  Codex gardé (rea-prevost) » ; les boutons CODEX et rea-prevost (Codex) restent en place, aucun bouton n'est renommé. Un `rea-gui` déjà installé reçoit ce nouveau titre au prochain `installer.py --apply`.
+**Icône REA.** `installer.py --apply` crée aussi un raccourci nommé **REA** qui ouvre l'interface REA (`rea-gui`) avec l'image `integration-rea/rea.svg` (fond noir, REA en rouge, « PRÉVOST local » en bleu ciel néon) : `~/.local/share/icons/rea.svg`, `~/.local/share/applications/rea-interface.desktop` et, si le dossier du bureau est défini (`xdg-user-dir DESKTOP`), une copie `REA.desktop` sur le bureau, marquée « autorisée » avec `gio`. Les fichiers remplacés sont sauvegardés comme les autres ; un lien symbolique est refusé. `--share-dir` et `--desktop-dir` changent les dossiers. Un ancien `REA.desktop` du menu des applications n'est pas touché : il peut rester à côté du nouveau. L'affichage de l'image sur un vrai bureau Ubuntu n'a pas été vu ici : les tests vérifient les fichiers écrits, pas le rendu.
+Un `rea-gui` qui avait reçu le bouton sous son ancien nom `prevost-ia` est migré ; un ancien fichier `~/.local/bin/prevost-ia` éventuel n'est pas supprimé et peut être effacé à la main.
+
 ## Thème demandé
 
 - Fond noir `#000000`, texte principal blanc `#FFFFFF`.
@@ -25,13 +43,12 @@ Il ne change ni le thème système ni la configuration permanente de Codex.
 
 ## Installation sur Ubuntu
 
-Depuis le terminal Ubuntu normal :
+Depuis la racine du dépôt, dans un terminal Ubuntu normal :
 
 ```bash
-python3 /home/ti-lex/Samsung-Android16/integration-rea/installer.py --apply
+python3 integration-rea/installer.py --apply
 ```
 
-Sur la copie GitHub : `python3 integration-rea/installer.py --apply`.
 Sans `--apply`, seul l'aperçu est affiché. L'installateur sauvegarde les fichiers existants
 avant remplacement et restaure ces fichiers si l'écriture échoue. Il refuse un bouton
 inconnu ou des fichiers ciblés qui sont des liens symboliques. Il ne touche pas aux autres
@@ -79,7 +96,7 @@ l'usage des outils et le budget de contexte restent à évaluer dans une session
 python3 -m unittest discover -s integration-rea -p 'test_*.py' -v
 ```
 
-**16 tests réussis** : installation/sauvegarde/idempotence, migration du précédent
+**32 tests réussis** (16 pour le bouton prevost-rea, le titre de la fenêtre et l'icône REA : installation unique et idempotente, mise à niveau d'un `rea-gui` déjà modifié pour Codex, migration de l'ancien nom `prevost-ia`, refus d'un fichier inconnu ou d'un lien symbolique, projet avec espaces, annulation, modèle par défaut, exécution réelle depuis un autre dossier, terminal gardé ouvert en cas d'erreur) : installation/sauvegarde/idempotence, migration du précédent
 raccourci de conversation, choix du projet avec espaces, terminal de repli, thème noir/blanc
 et code coloré, paramètres Codex, refus de serveurs distants, outils non annoncés,
 diagnostic sans exécution et séquences couleur.

@@ -124,7 +124,7 @@ class ToolsTests(unittest.TestCase):
         with contextlib.redirect_stdout(io.StringIO()) as output, patch('builtins.input', return_value='oui'):
             result = Agent(registry, ui).run('Vérifier le thème', scripted(steps))
         text = output.getvalue()
-        self.assertIn('\x1b[38;2;135;206;235mÉtape 1', text)
+        self.assertIn('\x1b[38;2;0;225;255mÉtape 1', text)
         self.assertIn('\x1b[38;2;255;255;0mAppel proposé : project.write\x1b[0m', text)
         self.assertIn('\x1b[38;2;255;255;0mProposition de fichier', text)
         self.assertIn('\x1b[40;97m{', text)

@@ -77,7 +77,7 @@ class ScanTests(unittest.TestCase):
              contextlib.redirect_stdout(io.StringIO()) as output:
             scan_mission(self.project, 'scanme.nmap.org', self.ui, 3)
         text = output.getvalue()
-        self.assertIn('\x1b[38;2;135;206;235m', text)
+        self.assertIn('\x1b[38;2;0;225;255m', text)
         self.assertIn('\x1b[38;2;255;255;0mExécution Nmap', text)
         self.assertIn('\x1b[40;97m{', text)
         self.assertIn('Aucune cible analysée', text)

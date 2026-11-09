@@ -88,6 +88,13 @@ class BenchTests(unittest.TestCase):
         self.assertTrue(all(good.values()), [k for k, v in good.items() if not v])
         self.assertFalse(any(bad.values()))
 
+    def test_missions_run_silently_without_progress_dots(self):
+        import tempfile
+        client = FakeClient(['bon'])
+        with tempfile.TemporaryDirectory() as base, contextlib.redirect_stdout(io.StringIO()) as out:
+            bench.run_model(client, 'bon', base, 30)
+        self.assertEqual(out.getvalue(), '')
+
     def test_refusal_runs_nothing(self):
         for answer in ('non', 'Oui', 'OUI', 'o', ''):
             with self.subTest(answer=answer), patch('prevost.bench.run_model') as run:

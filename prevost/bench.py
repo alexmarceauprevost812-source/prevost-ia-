@@ -23,6 +23,12 @@ class QuietUI(UI):
     def display(self, code, text, **kwargs):
         pass
 
+    def progress(self, chunks, label):
+        return ''.join(chunks)
+
+    def answer(self, chunks):
+        return ''.join(chunks)
+
     def confirm(self, text):
         self.confirmations += 1
         return True

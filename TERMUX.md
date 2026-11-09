@@ -5,12 +5,12 @@ Garder le dépôt et le coffre dans le stockage privé de Termux, pas dans `/sdc
 
 ## Installation
 
-Dans Termux, récupérer la branche v2 (le dépôt privé exige votre accès GitHub) :
+Dans Termux, récupérer le dépôt (s’il est encore privé, il exige votre accès GitHub) :
 
 ```bash
 pkg install git
 cd ~
-git clone --branch v2 https://github.com/alexmarceauprevost812-source/prevost-ia-.git
+git clone https://github.com/alexmarceauprevost812-source/prevost-ia-.git
 cd prevost-ia-
 bash install-termux.sh
 mkdir -p ~/projets/essai
