@@ -123,6 +123,22 @@ class CoderLoopTests(unittest.TestCase):
                 self.assertEqual(self.proposals, [])
                 self.assertFalse((self.root/'p.py').exists())
 
+    def test_two_different_checks_for_the_same_file_are_refused_before_writing(self):
+        # Cas réel observé avec qwen3:8b : un programme sans argument n'a qu'une sortie.
+        contradictory = json.dumps({'files': [{'path': 'p.py', 'content': 'print("ok")\n'}],
+            'checks': [{'path': 'p.py', 'expected_stdout': 'ok\n'}, {'path': 'p.py', 'expected_stdout': 'Erreur\n'}]})
+        model = Script(contradictory, plan())
+        result = self.run_mission(model)
+        self.assertEqual(result['status'], 'double_verification_reussie')
+        self.assertEqual(len(self.written_proposals()), 1)
+        self.assertIn('Deux contrôles différents pour p.py', model.calls[1][-1]['content'])
+        # Deux contrôles identiques restent acceptés.
+        same = json.dumps({'files': [{'path': 'p.py', 'content': 'print("ok")\n'}],
+            'checks': [{'path': 'p.py', 'expected_stdout': 'ok\n'}] * 2})
+        model = Script(same)
+        self.assertEqual(self.run_mission(model)['status'], 'double_verification_reussie')
+        self.assertEqual(len(model.calls), 1)
+
     def test_dangerous_path_is_not_retried(self):
         bad = json.dumps({'files': [{'path': '../dehors.py', 'content': 'pass\n'}]})
         model = Script(bad, plan())

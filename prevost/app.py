@@ -286,6 +286,8 @@ PLAN_INSTRUCTION = (
     'Prévoir les cas normaux et les erreurs, avec des tests pertinents. '
     'Fournir un contrôle checks pour chaque fichier Python écrit, exécuté après toutes les écritures et commandes. '
     'Chaque contrôle vérifie la syntaxe puis la sortie réelle. Ne pas annoncer un code correct sans ces preuves. '
+    'Le programme est lancé sans argument et n’a qu’une seule sortie : un seul contrôle par fichier, '
+    'avec la sortie exacte et complète de cette exécution. '
     'Pas de suppression, réseau ni modification système. Les fichiers existants '
     'ne sont connus que si fournis dans le contexte. Demande : ')
 QUOTE_HINT = ('Dans une chaîne JSON, échappe chaque guillemet double ainsi : \\" . Dans le code Python, '
@@ -359,6 +361,11 @@ def check_plan(project, plan, request):
         project.path(check['path'])
         if str(Path(check['path'])) not in planned and not project.path(check['path']).exists():
             raise PlanError(f"Le contrôle vise {check['path']}, absent du plan et du projet.")
+    expected = {}
+    for check in checks:
+        if expected.setdefault(str(Path(check['path'])), check['expected_stdout']) != check['expected_stdout']:
+            raise PlanError(f"Deux contrôles différents pour {check['path']} : le programme est lancé sans argument et "
+                            'n’a qu’une seule sortie. Un seul contrôle par fichier, avec la sortie complète.')
     if RUN_REQUEST.search(request) and not commands and not checks:
         raise PlanError('La demande veut un lancement ou un test, mais le plan n’a ni commande ni contrôle.')
     return files, commands, checks
